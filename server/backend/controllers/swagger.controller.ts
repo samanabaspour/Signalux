@@ -41,7 +41,7 @@ const swaggerSpec = {
                 type: 'object',
                 properties: {
                   email: { type: 'string', example: 'admin@signalux.ir' },
-                  password: { type: 'string', example: 'SignaluxSuperAdmin2026!' },
+                  password: { type: 'string', example: '<set-a-new-admin-password>' },
                 },
                 required: ['email', 'password'],
               },

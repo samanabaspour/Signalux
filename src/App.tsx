@@ -1,16 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { motion, useScroll, useSpring } from 'motion/react';
-import { Loader } from './components/Loader';
 import { CustomCursor } from './components/CustomCursor';
 import { Navbar } from './components/Navbar';
+import { NotFoundPage } from './components/NotFoundPage';
 import { ThreeSignalHero } from './components/ThreeSignalHero';
-import { TrustBar } from './components/TrustBar';
 import { AboutPhilosophy } from './components/AboutPhilosophy';
 import { ServicesSection } from './components/ServicesSection';
 import { PortfolioSection } from './components/PortfolioSection';
 import { Certificate3DSlider } from './components/Certificate3DSlider';
 import { ProcessTimeline } from './components/ProcessTimeline';
-import { ResultsMetrics } from './components/ResultsMetrics';
 import { TestimonialsSection } from './components/TestimonialsSection';
 import { FaqSection } from './components/FaqSection';
 import { ConsultationForm } from './components/ConsultationForm';
@@ -25,7 +23,6 @@ import { WebDesignPage } from './components/WebDesignPage';
 import { SeoPage } from './components/SeoPage';
 import { TestimonialsMediaPage } from './components/TestimonialsMediaPage';
 import { KineticMarquee } from './components/KineticMarquee';
-import { AdminDashboard } from './components/AdminDashboard';
 import { TicketPortalModal } from './components/TicketPortalModal';
 import { UserAuthModal } from './components/UserAuthModal';
 import { UserAccountPage } from './components/UserAccountPage';
@@ -34,10 +31,13 @@ import { BlogPostDetailPage } from './components/BlogPostDetailPage';
 
 import { ServiceItem, PortfolioProject, CertificateItem, AppUser, BlogPost } from './types';
 import { fetchSettings } from './services/apiClient';
-import { parseCurrentRoute, navigateTo, ROUTE_PATHS, AppView, RouteInfo } from './utils/router';
+import { parseCurrentRoute, navigateTo, ROUTE_PATHS, AppView, RouteInfo, isPrivateView, staticPages, StaticView } from './utils/router';
+
+import { applyPageMetadata } from './utils/pageMetadata';
+
+const AdminDashboard = lazy(() => import('./components/AdminDashboard').then(module => ({ default: module.AdminDashboard })));
 
 export default function App() {
-  const [loading, setLoading] = useState(true);
   const [currentRoute, setCurrentRoute] = useState<RouteInfo>(() => parseCurrentRoute());
   const activeView: AppView = currentRoute.view;
 
@@ -48,7 +48,10 @@ export default function App() {
 
   // Modals for Tickets and User Auth (Mobile OTP / Google Login)
   const [ticketModalOpen, setTicketModalOpen] = useState(false);
-  const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [authModalOpen, setAuthModalOpen] = useState(() =>
+    currentRoute.view === 'account' && new URLSearchParams(window.location.search).get('login') === '1'
+  );
+  const [accountVersion, setAccountVersion] = useState(0);
 
   const { scrollYProgress } = useScroll();
   const scaleX = useSpring(scrollYProgress, {
@@ -61,6 +64,14 @@ export default function App() {
   useEffect(() => {
     fetchSettings();
   }, []);
+
+  useEffect(() => {
+    const page = staticPages[activeView as StaticView];
+    if (page) applyPageMetadata({ ...page, noIndex: isPrivateView(activeView) });
+    if (activeView === 'not-found') {
+      applyPageMetadata({ title: 'صفحه پیدا نشد', description: 'نشانی درخواستی وجود ندارد.', noIndex: true });
+    }
+  }, [activeView]);
 
   // Sync state with browser back/forward buttons
   useEffect(() => {
@@ -85,8 +96,6 @@ export default function App() {
     }
 
     navigateTo(path);
-    setCurrentRoute({ view, param });
-    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleOpenConsultation = () => {
@@ -142,18 +151,32 @@ export default function App() {
     changeRoute('account');
   };
 
+  const handleOpenAuth = () => {
+    if (!isPrivateView(activeView)) {
+      navigateTo(ROUTE_PATHS.account + '?login=1');
+      return;
+    }
+    if (activeView === 'admin') navigateTo(ROUTE_PATHS.account);
+    setAuthModalOpen(true);
+  };
+
+  const handleCloseAuth = () => {
+    const url = new URL(window.location.href);
+    if (url.searchParams.get('login') === '1') {
+      url.searchParams.delete('login');
+      window.history.replaceState(null, '', url);
+    }
+    setAuthModalOpen(false);
+  };
+
   const handleSelectBlogPost = (post: BlogPost) => {
     setSelectedBlogPost(post);
     changeRoute('blog-detail', post.slug || post.id);
   };
 
-  const handleNavigateAdmin = () => {
-    changeRoute('admin');
-  };
-
   const handleSelectProject = (project: PortfolioProject) => {
     setSelectedProject(project);
-    changeRoute('project-detail', project.id);
+    changeRoute('project-detail', project.slug || project.id);
   };
 
   const handleBackToHome = () => {
@@ -171,7 +194,7 @@ export default function App() {
   };
 
   const handleAuthSuccess = (_user: AppUser) => {
-    // If ticket modal was opened previously or user wanted to manage tickets, let them explore
+    setAccountVersion(version => version + 1);
   };
 
   return (
@@ -182,19 +205,16 @@ export default function App() {
         style={{ scaleX }}
       />
 
-      {/* Brand Intro Loader */}
-      {loading && <Loader onComplete={() => setLoading(false)} />}
-
       {/* Custom Desktop Magnetic Cursor */}
       <CustomCursor />
 
       {/* Main Content */}
-      {!loading && (
-        <>
+      <>
           {/* Navigation */}
           <Navbar
+            key={accountVersion}
             onOpenConsultation={handleOpenConsultation}
-            onOpenAuth={() => setAuthModalOpen(true)}
+            onOpenAuth={handleOpenAuth}
             onNavigateHome={handleBackToHome}
             onNavigateAbout={handleNavigateAbout}
             onNavigateServices={handleNavigateServices}
@@ -210,7 +230,9 @@ export default function App() {
             activeView={activeView}
           />
 
-          {activeView === 'about' ? (
+          {activeView === 'not-found' ? (
+            <NotFoundPage />
+          ) : activeView === 'about' ? (
             <AboutUsPage
               onBackToHome={handleBackToHome}
               onOpenConsultation={handleOpenConsultation}
@@ -218,8 +240,9 @@ export default function App() {
             />
           ) : activeView === 'account' ? (
             <UserAccountPage
+              key={accountVersion}
               onBackToHome={handleBackToHome}
-              onOpenAuth={() => setAuthModalOpen(true)}
+              onOpenAuth={handleOpenAuth}
             />
           ) : activeView === 'blog' ? (
             <div className="pt-16 min-h-screen bg-[#0B0B0F]">
@@ -232,7 +255,8 @@ export default function App() {
             </div>
           ) : activeView === 'blog-detail' ? (
             <BlogPostDetailPage
-              post={selectedBlogPost}
+              key={currentRoute.param}
+              post={selectedBlogPost && [selectedBlogPost.slug, selectedBlogPost.id].includes(currentRoute.param ?? '') ? selectedBlogPost : null}
               slugParam={currentRoute.param || selectedBlogPost?.slug || selectedBlogPost?.id}
               onBack={handleNavigateBlog}
               onBackToHome={handleBackToHome}
@@ -265,7 +289,9 @@ export default function App() {
               onBackToHome={handleBackToHome}
             />
           ) : activeView === 'admin' ? (
-            <AdminDashboard onBackToHome={handleBackToHome} />
+            <Suspense fallback={<p role="status" className="p-24 text-center">در حال بارگیری پنل…</p>}>
+              <AdminDashboard onBackToHome={handleBackToHome} />
+            </Suspense>
           ) : activeView === 'projects-list' ? (
             <AllProjectsPage
               onBackToHome={handleBackToHome}
@@ -274,7 +300,8 @@ export default function App() {
             />
           ) : activeView === 'project-detail' ? (
             <ProjectDetailPage
-              project={selectedProject}
+              key={currentRoute.param}
+              project={selectedProject && [selectedProject.slug, selectedProject.id].includes(currentRoute.param) ? selectedProject : null}
               projectId={currentRoute.param || selectedProject?.id}
               onBack={handleViewAllProjects}
               onSelectProject={handleSelectProject}
@@ -284,9 +311,6 @@ export default function App() {
             <main>
               {/* Hero Section with Interactive 3D Canvas */}
               <ThreeSignalHero onOpenConsultation={handleOpenConsultation} />
-
-              {/* Trust Bar & Stats */}
-              <TrustBar />
 
               {/* About & Philosophy Storytelling */}
               <AboutPhilosophy />
@@ -308,9 +332,6 @@ export default function App() {
 
               {/* Process Timeline */}
               <ProcessTimeline />
-
-              {/* Results & ROI Calculator */}
-              <ResultsMetrics />
 
               {/* Latest Blog Articles & SEO Knowledge Base */}
               <BlogSection
@@ -343,7 +364,6 @@ export default function App() {
               onNavigateTestimonials={handleNavigateTestimonialsMedia}
               onNavigateBlog={handleNavigateBlog}
               onNavigateContact={handleNavigateContact}
-              onNavigateAdmin={handleNavigateAdmin}
             />
           )}
 
@@ -362,18 +382,17 @@ export default function App() {
             onClose={() => setTicketModalOpen(false)}
             onOpenAuth={() => {
               setTicketModalOpen(false);
-              setAuthModalOpen(true);
+              handleOpenAuth();
             }}
           />
 
           {/* User Auth Modal (Mobile OTP / Google Login) */}
           <UserAuthModal
             isOpen={authModalOpen}
-            onClose={() => setAuthModalOpen(false)}
+            onClose={handleCloseAuth}
             onSuccess={handleAuthSuccess}
           />
-        </>
-      )}
+      </>
     </div>
   );
 }

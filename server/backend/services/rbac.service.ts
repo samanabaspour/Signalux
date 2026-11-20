@@ -46,6 +46,12 @@ export const SYSTEM_PERMISSIONS = [
   { key: 'settings.view', group: 'تنظیمات', description: 'مشاهده تنظیمات سایت' },
   { key: 'settings.manage', group: 'تنظیمات', description: 'ویرایش تنظیمات اصلی سایت' },
 
+  { key: 'blog.manage', group: 'بلاگ', description: 'مدیریت مقاله‌ها' },
+  { key: 'comments.manage', group: 'دیدگاه‌ها', description: 'بازبینی دیدگاه‌ها' },
+  { key: 'seo.manage', group: 'سئو', description: 'ویرایش تنظیمات سئو' },
+  { key: 'tickets.manage', group: 'پشتیبانی', description: 'مشاهده و پاسخ‌گویی تیکت‌ها' },
+  { key: 'tickets.delete', group: 'پشتیبانی', description: 'حذف تیکت‌ها' },
+
   // Media
   { key: 'media.view', group: 'رسانه', description: 'مشاهده کتابخانه رسانه' },
   { key: 'media.upload', group: 'رسانه', description: 'آپلود و مدیریت فایل‌ها' },
@@ -56,55 +62,15 @@ class RbacService {
    * Get roles and permissions for a user
    */
   public async getUserAuthContext(userId: string): Promise<{ roles: string[]; permissions: string[] }> {
-    if (!prismaService.status) {
-      // In-memory or initial fallback
-      return {
-        roles: ['SUPER_ADMIN'],
-        permissions: SYSTEM_PERMISSIONS.map(p => p.key),
-      };
-    }
-
-    try {
-      const userRoles = await prismaService.prisma.userRole.findMany({
-        where: { userId },
-        include: {
-          role: {
-            include: {
-              rolePermissions: {
-                include: {
-                  permission: true,
-                },
-              },
-            },
-          },
-        },
-      });
-
-      const roles = userRoles.map(ur => ur.role.name);
-      
-      // If Super Admin, grant all permissions automatically
-      if (roles.includes('SUPER_ADMIN')) {
-        return {
-          roles,
-          permissions: SYSTEM_PERMISSIONS.map(p => p.key),
-        };
-      }
-
-      const permissionSet = new Set<string>();
-      userRoles.forEach(ur => {
-        ur.role.rolePermissions.forEach(rp => {
-          permissionSet.add(rp.permission.key);
-        });
-      });
-
-      return {
-        roles,
-        permissions: Array.from(permissionSet),
-      };
-    } catch (err) {
-      console.error('Error fetching RBAC context:', err);
-      return { roles: ['SUPER_ADMIN'], permissions: SYSTEM_PERMISSIONS.map(p => p.key) };
-    }
+    const userRoles = await prismaService.prisma.userRole.findMany({
+      where: { userId },
+      include: { role: { include: { rolePermissions: { include: { permission: true } } } } },
+    });
+    const roles = userRoles.map(({ role }) => role.name);
+    const permissions = roles.includes('SUPER_ADMIN')
+      ? SYSTEM_PERMISSIONS.map(({ key }) => key)
+      : [...new Set(userRoles.flatMap(({ role }) => role.rolePermissions.map(({ permission }) => permission.key)))];
+    return { roles, permissions };
   }
 
   /**

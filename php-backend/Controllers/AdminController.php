@@ -17,10 +17,10 @@ class AdminController {
         $db = Database::getConnection();
 
         if ($db) {
-            $servicesCount = (int)$db->query("SELECT COUNT(*) FROM services WHERE is_active = 1")->fetchColumn();
-            $projectsCount = (int)$db->query("SELECT COUNT(*) FROM projects WHERE is_published = 1")->fetchColumn();
-            $leadsCount = (int)$db->query("SELECT COUNT(*) FROM leads")->fetchColumn();
-            $newLeadsCount = (int)$db->query("SELECT COUNT(*) FROM leads WHERE status = 'new'")->fetchColumn();
+            $servicesCount = (int)$db->query("SELECT COUNT(*) FROM services WHERE isPublished = 1")->fetchColumn();
+            $projectsCount = (int)$db->query("SELECT COUNT(*) FROM projects WHERE isPublished = 1")->fetchColumn();
+            $leadsCount = (int)$db->query("SELECT COUNT(*) FROM lead_submissions")->fetchColumn();
+            $newLeadsCount = (int)$db->query("SELECT COUNT(*) FROM lead_submissions WHERE status = 'new'")->fetchColumn();
 
             Response::json([
                 'servicesCount' => $servicesCount,
@@ -43,7 +43,7 @@ class AdminController {
         Auth::requirePermission('leads.view');
         $db = Database::getConnection();
         if ($db) {
-            $stmt = $db->query("SELECT * FROM leads ORDER BY created_at DESC");
+            $stmt = $db->query("SELECT * FROM lead_submissions ORDER BY createdAt DESC");
             $rows = $stmt->fetchAll();
             $data = array_map(function($r) {
                 return [
@@ -56,7 +56,7 @@ class AdminController {
                     'budget'    => $r['budget'],
                     'message'   => $r['message'],
                     'status'    => $r['status'],
-                    'createdAt' => $r['created_at']
+                    'createdAt' => $r['createdAt']
                 ];
             }, $rows);
             Response::json($data);
@@ -75,7 +75,7 @@ class AdminController {
 
         $db = Database::getConnection();
         if ($db) {
-            $stmt = $db->prepare("UPDATE leads SET status = ? WHERE id = ?");
+            $stmt = $db->prepare("UPDATE lead_submissions SET status = ? WHERE id = ?");
             $stmt->execute([$status, $id]);
             Response::json(['id' => $id, 'status' => $status]);
         }
@@ -86,7 +86,7 @@ class AdminController {
         Auth::requirePermission('leads.manage');
         $db = Database::getConnection();
         if ($db) {
-            $db->prepare("DELETE FROM leads WHERE id = ?")->execute([$id]);
+            $db->prepare("DELETE FROM lead_submissions WHERE id = ?")->execute([$id]);
         }
         Response::json(['message' => 'لید با موفقیت حذف شد.']);
     }
@@ -95,19 +95,31 @@ class AdminController {
     public static function updateSettings(): void {
         Auth::requirePermission('settings.manage');
         $input = Response::getJsonInput();
-        $db = Database::getConnection();
+        $db = Auth::database();
+        $current = $db->query("SELECT gtmContainerId, gtmEnabled FROM site_settings
+            ORDER BY (id = 'default-settings') DESC, id ASC LIMIT 1")->fetch();
+        if (!$current) {
+            Response::error('تنظیمات اولیهٔ سایت وجود ندارد.', 503, 'SETTINGS_UNAVAILABLE');
+        }
+        $gtmId = array_key_exists('gtmContainerId', $input) ? $input['gtmContainerId'] : $current['gtmContainerId'];
+        $gtmEnabled = array_key_exists('gtmEnabled', $input) ? $input['gtmEnabled'] : (bool)$current['gtmEnabled'];
+        $gtmId = is_string($gtmId) ? trim($gtmId) : null;
+        if ($gtmId === null || !preg_match('/^(?:GTM-[A-Z0-9]{1,20})?$/D', $gtmId)
+            || !is_bool($gtmEnabled) || ($gtmEnabled && $gtmId === '')) {
+            Response::error('شناسهٔ معتبر GTM برای فعال‌سازی لازم است.', 400, 'INVALID_GTM_SETTINGS');
+        }
 
         if ($db) {
             $stmt = $db->prepare("
                 UPDATE site_settings SET
-                    site_title = ?, hero_headline = ?, hero_subtitle = ?,
-                    contact_email = ?, contact_phone = ?, contact_address = ?,
-                    instagram_url = ?, linkedin_url = ?, telegram_url = ?, github_url = ?,
-                    font_family = ?, font_size_base = ?, font_heading_scale = ?, font_weight_base = ?, line_height_scale = ?,
-                    gtm_container_id = ?, gtm_enabled = ?, gsc_verification_code = ?,
-                    google_client_id = ?, google_login_enabled = ?,
-                    melipayamak_username = ?, melipayamak_sender_number = ?, melipayamak_otp_body_id = ?, melipayamak_enabled = ?
-                WHERE id = 'default-settings' OR id IS NOT NULL LIMIT 1
+                    siteTitle = ?, heroHeadline = ?, heroSubtitle = ?,
+                    contactEmail = ?, contactPhone = ?, contactAddress = ?,
+                    instagramUrl = ?, linkedinUrl = ?, telegramUrl = ?, githubUrl = ?,
+                    fontFamily = ?, fontSizeBase = ?, fontHeadingScale = ?, fontWeightBase = ?, lineHeightScale = ?,
+                    gtmContainerId = ?, gtmEnabled = ?,
+                    googleClientId = ?, googleLoginEnabled = ?,
+                    melipayamakUsername = ?, melipayamakSenderNumber = ?, melipayamakOtpBodyId = ?, melipayamakEnabled = ?
+                ORDER BY (id = 'default-settings') DESC, id ASC LIMIT 1
             ");
             $stmt->execute([
                 $input['siteTitle'] ?? 'آژانس دیجیتال سیگنالوکس (Signalux)',
@@ -125,9 +137,8 @@ class AdminController {
                 $input['fontHeadingScale'] ?? '1.25',
                 $input['fontWeightBase'] ?? '400',
                 $input['lineHeightScale'] ?? '1.65',
-                $input['gtmContainerId'] ?? '',
-                isset($input['gtmEnabled']) ? ((int)$input['gtmEnabled']) : 0,
-                $input['gscVerificationCode'] ?? '',
+                $gtmId,
+                (int)$gtmEnabled,
                 $input['googleClientId'] ?? '',
                 isset($input['googleLoginEnabled']) ? ((int)$input['googleLoginEnabled']) : 1,
                 $input['melipayamakUsername'] ?? '',
@@ -137,7 +148,7 @@ class AdminController {
             ]);
         }
 
-        Response::json($input);
+        PublicController::getSettings(true);
     }
 
     // --- SERVICES CRUD ---
@@ -149,7 +160,7 @@ class AdminController {
         $db = Database::getConnection();
         if ($db) {
             $stmt = $db->prepare("
-                INSERT INTO services (id, slug, title, subtitle, icon_name, description, features, metrics, deliverables, sort_order, is_active)
+                INSERT INTO services (id, slug, title, subtitle, iconName, description, features, metrics, deliverables, sortOrder, isPublished)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
             ");
             $stmt->execute([
@@ -177,8 +188,8 @@ class AdminController {
         if ($db) {
             $stmt = $db->prepare("
                 UPDATE services SET
-                    title = ?, subtitle = ?, icon_name = ?, description = ?,
-                    features = ?, metrics = ?, deliverables = ?, sort_order = ?
+                    title = ?, subtitle = ?, iconName = ?, description = ?,
+                    features = ?, metrics = ?, deliverables = ?, sortOrder = ?
                 WHERE id = ?
             ");
             $stmt->execute([
@@ -215,7 +226,7 @@ class AdminController {
         $db = Database::getConnection();
         if ($db) {
             $stmt = $db->prepare("
-                INSERT INTO projects (id, slug, title, client, category, category_label, thumbnail, year, summary, full_description, tags, metrics, is_published, is_featured, sort_order)
+                INSERT INTO projects (id, slug, title, client, category, categoryLabel, thumbnail, year, summary, fullDescription, tags, impactMetrics, isPublished, isFeatured, sortOrder)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
             ");
             $stmt->execute([
@@ -230,7 +241,7 @@ class AdminController {
                 $input['summary'] ?? '',
                 $input['fullDescription'] ?? '',
                 json_encode($input['tags'] ?? []),
-                json_encode($input['metrics'] ?? []),
+                json_encode($input['impactMetrics'] ?? []),
                 !empty($input['isFeatured']) ? 1 : 0,
                 (int)($input['sortOrder'] ?? 0)
             ]);
@@ -247,9 +258,9 @@ class AdminController {
         if ($db) {
             $stmt = $db->prepare("
                 UPDATE projects SET
-                    title = ?, client = ?, category = ?, category_label = ?, thumbnail = ?,
-                    year = ?, summary = ?, full_description = ?, tags = ?, metrics = ?,
-                    is_featured = ?, sort_order = ?
+                    title = ?, client = ?, category = ?, categoryLabel = ?, thumbnail = ?,
+                    year = ?, summary = ?, fullDescription = ?, tags = ?, impactMetrics = ?,
+                    isFeatured = ?, sortOrder = ?
                 WHERE id = ?
             ");
             $stmt->execute([
@@ -262,7 +273,7 @@ class AdminController {
                 $input['summary'] ?? '',
                 $input['fullDescription'] ?? '',
                 json_encode($input['tags'] ?? []),
-                json_encode($input['metrics'] ?? []),
+                json_encode($input['impactMetrics'] ?? []),
                 !empty($input['isFeatured']) ? 1 : 0,
                 (int)($input['sortOrder'] ?? 0),
                 $id
@@ -290,7 +301,7 @@ class AdminController {
         $db = Database::getConnection();
         if ($db) {
             $stmt = $db->prepare("
-                INSERT INTO testimonials (id, name, role, company, avatar, quote, rating, results_achieved, is_published, sort_order)
+                INSERT INTO testimonials (id, name, role, company, avatar, quote, rating, resultsAchieved, isPublished, sortOrder)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, 0)
             ");
             $stmt->execute([
@@ -316,7 +327,7 @@ class AdminController {
         if ($db) {
             $stmt = $db->prepare("
                 UPDATE testimonials SET
-                    name = ?, role = ?, company = ?, avatar = ?, quote = ?, rating = ?, results_achieved = ?
+                    name = ?, role = ?, company = ?, avatar = ?, quote = ?, rating = ?, resultsAchieved = ?
                 WHERE id = ?
             ");
             $stmt->execute([
@@ -352,7 +363,7 @@ class AdminController {
         $db = Database::getConnection();
         if ($db) {
             $stmt = $db->prepare("
-                INSERT INTO certificates (id, title, issuer, issue_date, image, badge_type, description, skills, is_published, sort_order)
+                INSERT INTO certificates (id, title, issuer, issueDate, image, badgeType, description, skills, isPublished, sortOrder)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, 0)
             ");
             $stmt->execute([
@@ -378,7 +389,7 @@ class AdminController {
         if ($db) {
             $stmt = $db->prepare("
                 UPDATE certificates SET
-                    title = ?, issuer = ?, issue_date = ?, image = ?, badge_type = ?, description = ?, skills = ?
+                    title = ?, issuer = ?, issueDate = ?, image = ?, badgeType = ?, description = ?, skills = ?
                 WHERE id = ?
             ");
             $stmt->execute([
@@ -414,7 +425,7 @@ class AdminController {
         $db = Database::getConnection();
         if ($db) {
             $stmt = $db->prepare("
-                INSERT INTO faqs (id, category, question, answer, is_published, sort_order)
+                INSERT INTO faqs (id, category, question, answer, isPublished, sortOrder)
                 VALUES (?, ?, ?, ?, 1, 0)
             ");
             $stmt->execute([

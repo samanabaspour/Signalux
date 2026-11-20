@@ -248,7 +248,7 @@ export const ThreeSignalHero: React.FC<HeroProps> = ({ onOpenConsultation }) => 
           transition={{ duration: 0.8, delay: 0.2 }}
           className="text-4xl sm:text-6xl lg:text-7xl font-black text-white leading-tight tracking-tight mb-10 max-w-5xl uppercase"
         >
-          آژانس دیجیتال مارکتینگ <br className="hidden sm:inline" />
+          طراحی وب و سئو <br className="hidden sm:inline" />
           <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-100 via-amber-300 to-yellow-500">
             SIGNALUX
           </span>
@@ -266,7 +266,7 @@ export const ThreeSignalHero: React.FC<HeroProps> = ({ onOpenConsultation }) => 
             className="w-full sm:w-auto px-8 py-4 rounded-[5px] bg-gradient-to-r from-amber-600 via-amber-500 to-yellow-600 hover:from-amber-500 hover:to-amber-400 text-slate-950 font-black text-xs uppercase tracking-[0.2em] transition-all duration-300 flex items-center justify-center gap-3 cursor-pointer group shadow-[0_0_35px_rgba(212,175,55,0.4)]"
           >
             <Sparkles className="w-4 h-4 text-slate-950 group-hover:scale-110 transition-transform" />
-            <span>شروع مشاوره و سفارش پروژه</span>
+            <span>شروع مشاوره</span>
             <ArrowLeft className="w-4 h-4 text-slate-950 group-hover:-translate-x-1 transition-transform" />
           </button>
 
@@ -275,7 +275,7 @@ export const ThreeSignalHero: React.FC<HeroProps> = ({ onOpenConsultation }) => 
             className="w-full sm:w-auto px-8 py-4 rounded-[5px] bg-[#121017]/80 hover:bg-[#1A1722] border border-amber-500/25 hover:border-amber-400/60 text-amber-100 font-semibold text-xs uppercase tracking-[0.2em] transition-all duration-300 flex items-center justify-center gap-2"
           >
             <PlayCircle className="w-4 h-4 text-amber-400" />
-            <span>مشاهده نمونه‌کارها</span>
+            <span>نمونه‌کارها</span>
           </a>
         </motion.div>
 
@@ -291,8 +291,8 @@ export const ThreeSignalHero: React.FC<HeroProps> = ({ onOpenConsultation }) => 
               <Zap className="w-5 h-5 text-amber-400" />
             </div>
             <div>
-              <div className="text-xs font-bold text-white uppercase tracking-wider">سرعت فوق‌العاده بالا</div>
-              <div className="text-[11px] text-amber-100/60 mt-0.5">معماری فرانت‌اند بدون نویز</div>
+              <div className="text-xs font-bold text-white uppercase tracking-wider">سرعت بالا</div>
+              <div className="text-[11px] text-amber-100/60 mt-0.5">فرانت‌اند سبک</div>
             </div>
           </div>
 
@@ -301,8 +301,8 @@ export const ThreeSignalHero: React.FC<HeroProps> = ({ onOpenConsultation }) => 
               <ShieldCheck className="w-5 h-5 text-amber-400" />
             </div>
             <div>
-              <div className="text-xs font-bold text-white uppercase tracking-wider">گارانتی و تضمین کیفیت</div>
-              <div className="text-[11px] text-amber-100/60 mt-0.5">پشتیبانی ۱۲ ماهه کتبی رسمی</div>
+              <div className="text-xs font-bold text-white uppercase tracking-wider">تضمین کیفیت</div>
+              <div className="text-[11px] text-amber-100/60 mt-0.5">پشتیبانی ۱۲ ماهه</div>
             </div>
           </div>
 
@@ -311,8 +311,8 @@ export const ThreeSignalHero: React.FC<HeroProps> = ({ onOpenConsultation }) => 
               <Radio className="w-5 h-5 text-amber-400" />
             </div>
             <div>
-              <div className="text-xs font-bold text-white uppercase tracking-wider">تحلیل داده‌محور سئو</div>
-              <div className="text-[11px] text-amber-100/60 mt-0.5">افزایش نرخ تبدیل ارگانیک</div>
+              <div className="text-xs font-bold text-white uppercase tracking-wider">سئوی داده‌محور</div>
+              <div className="text-[11px] text-amber-100/60 mt-0.5">بهبود نرخ تبدیل</div>
             </div>
           </div>
         </motion.div>

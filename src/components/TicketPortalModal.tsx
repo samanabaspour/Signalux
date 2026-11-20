@@ -83,13 +83,13 @@ export const TicketPortalModal: React.FC<TicketPortalModalProps> = ({
         setNewName(`${user.firstName} ${user.lastName}`.trim());
         setNewPhone(user.phone || '');
       }
-      loadTickets(user?.phone);
+      if (user) loadTickets();
     }
   }, [isOpen]);
 
-  const loadTickets = async (phone?: string) => {
+  const loadTickets = async () => {
     setLoading(true);
-    const data = await fetchUserTickets(phone);
+    const data = await fetchUserTickets();
     setTickets(data);
     setLoading(false);
   };
@@ -268,7 +268,7 @@ export const TicketPortalModal: React.FC<TicketPortalModalProps> = ({
           </div>
 
           <button
-            onClick={() => loadTickets(currentUser?.phone)}
+            onClick={() => loadTickets()}
             disabled={loading}
             className="p-1.5 rounded-lg text-white/40 hover:text-white hover:bg-white/5 transition-colors"
             title="بروزرسانی تیکت‌ها"

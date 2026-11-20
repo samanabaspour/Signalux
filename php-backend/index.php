@@ -10,10 +10,12 @@ require_once __DIR__ . '/Core/JWT.php';
 require_once __DIR__ . '/Core/Auth.php';
 require_once __DIR__ . '/Controllers/PublicController.php';
 require_once __DIR__ . '/Controllers/AuthController.php';
+require_once __DIR__ . '/Controllers/CustomerAuthController.php';
 require_once __DIR__ . '/Controllers/AdminController.php';
 require_once __DIR__ . '/Controllers/UserController.php';
 require_once __DIR__ . '/Controllers/BlogController.php';
 require_once __DIR__ . '/Controllers/SeoController.php';
+require_once __DIR__ . '/Controllers/SiteController.php';
 require_once __DIR__ . '/Controllers/MediaTestimonialsController.php';
 require_once __DIR__ . '/Controllers/SecurityController.php';
 require_once __DIR__ . '/Controllers/SpeedController.php';
@@ -22,42 +24,45 @@ use Signalux\Core\Response;
 use Signalux\Core\Database;
 use Signalux\Controllers\PublicController;
 use Signalux\Controllers\AuthController;
+use Signalux\Controllers\CustomerAuthController;
 use Signalux\Controllers\AdminController;
 use Signalux\Controllers\UserController;
 use Signalux\Controllers\BlogController;
 use Signalux\Controllers\SeoController;
+use Signalux\Controllers\SiteController;
 use Signalux\Controllers\MediaTestimonialsController;
 use Signalux\Controllers\SecurityController;
 use Signalux\Controllers\SpeedController;
 
+ini_set('display_errors', '0');
+set_exception_handler(static function (Throwable $error): void {
+    error_log('Signalux API error: ' . get_class($error) . ' / ' . $error->getCode());
+    Response::error('خطای داخلی سرویس.', 500, 'INTERNAL_SERVER_ERROR');
+});
 Response::setHeaders();
 
 $method = $_SERVER['REQUEST_METHOD'];
 $uri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 
-// Strip script name or subfolder if nested
-$scriptName = dirname($_SERVER['SCRIPT_NAME']);
-if ($scriptName !== '/' && strpos($uri, $scriptName) === 0) {
-    $uri = substr($uri, strlen($scriptName));
+if (!is_string($uri) || $uri === '' || $uri[0] !== '/') {
+    Response::error('نشانی درخواست معتبر نیست.', 400, 'INVALID_URI');
 }
 
-// Ensure URI starts with '/'
-$uri = '/' . ltrim($uri, '/');
+if (in_array($method, ['GET', 'HEAD'], true)) {
+    if ($uri === '/sitemap.xml') SiteController::sitemap(true);
+    if ($uri === '/robots.txt') SiteController::robots(true);
+    if ($uri === '/index.html') { header('Location: /', true, 301); exit; }
+    if ($uri !== '/api' && !str_starts_with($uri, '/api/')) SiteController::servePage($uri);
+}
+
+if (preg_match('#^/api/v1/(auth|admin|users|roles|tickets)(?:/|$)#', $uri)) {
+    header('Cache-Control: no-store');
+}
 
 // 1. Health Check
-if ($uri === '/api/v1/health' || $uri === '/health') {
-    $dbConnected = Database::isConnected();
-    Response::json([
-        'status'         => 'OK',
-        'runtime'        => 'PHP ' . PHP_VERSION,
-        'uptimeSeconds'  => (int)(time() - ($_SERVER['REQUEST_TIME'] ?? time())),
-        'database'       => [
-            'status'   => $dbConnected ? 'CONNECTED' : 'DISCONNECTED',
-            'provider' => 'mysql',
-            'database' => 'soheils4_signalux'
-        ],
-        'version'        => '1.0.0'
-    ]);
+if ($method === 'GET' && $uri === '/api/v1/health') {
+    if (!Database::isConnected()) Response::error('دیتابیس در دسترس نیست.', 503, 'DATABASE_UNAVAILABLE');
+    Response::json(['status' => 'UP']);
 }
 
 // 2. Public Endpoints
@@ -75,7 +80,7 @@ if ($method === 'GET' && $uri === '/api/v1/public/projects') {
     PublicController::getProjects();
 }
 if ($method === 'GET' && preg_match('#^/api/v1/public/projects/([^/]+)$#', $uri, $m)) {
-    PublicController::getProjectById($m[1]);
+    PublicController::getProjectById(rawurldecode($m[1]));
 }
 if ($method === 'GET' && $uri === '/api/v1/public/testimonials') {
     PublicController::getTestimonials();
@@ -100,6 +105,11 @@ if ($method === 'POST' && $uri === '/api/v1/public/contact') {
 }
 
 // 3. Auth Endpoints
+if ($method === 'GET' && $uri === '/api/v1/auth/options') CustomerAuthController::options();
+if ($method === 'POST' && $uri === '/api/v1/auth/google/challenge') CustomerAuthController::googleChallenge();
+if ($method === 'POST' && $uri === '/api/v1/auth/google') CustomerAuthController::google();
+if ($method === 'POST' && $uri === '/api/v1/auth/otp/send') CustomerAuthController::sendOtp();
+if ($method === 'POST' && $uri === '/api/v1/auth/otp/verify') CustomerAuthController::verifyOtp();
 if ($method === 'POST' && $uri === '/api/v1/auth/login') {
     AuthController::login();
 }
@@ -131,7 +141,8 @@ if ($method === 'DELETE' && preg_match('#^/api/v1/admin/leads/([^/]+)$#', $uri, 
 }
 
 if ($method === 'GET' && $uri === '/api/v1/admin/settings') {
-    PublicController::getSettings();
+    \Signalux\Core\Auth::requirePermission('settings.view');
+    PublicController::getSettings(true);
 }
 if ($method === 'PUT' && $uri === '/api/v1/admin/settings') {
     AdminController::updateSettings();
@@ -206,15 +217,17 @@ if ($method === 'DELETE' && preg_match('#^/api/v1/admin/users/([^/]+)$#', $uri, 
     UserController::deleteAdminUser($m[1]);
 }
 if ($method === 'GET' && $uri === '/api/v1/roles') {
-    UserController::getRoles();
+    \Signalux\Core\Auth::requirePermission('roles.view');
+    $roles = \Signalux\Core\Auth::database()->query('SELECT id, name, labelPersian, description FROM roles ORDER BY name');
+    Response::json($roles->fetchAll());
 }
 
 // 6. Blog & Articles (Public & Admin)
-if ($method === 'GET' && $uri === '/api/v1/blog') {
+if ($method === 'GET' && in_array($uri, ['/api/v1/blog', '/api/v1/public/blog'], true)) {
     BlogController::getPublishedPosts();
 }
-if ($method === 'GET' && preg_match('#^/api/v1/blog/([^/]+)$#', $uri, $m)) {
-    BlogController::getPostBySlug($m[1]);
+if ($method === 'GET' && preg_match('#^/api/v1/(?:public/)?blog/([^/]+)$#', $uri, $m)) {
+    BlogController::getPostBySlug(rawurldecode($m[1]));
 }
 if ($method === 'GET' && $uri === '/api/v1/admin/blog') {
     BlogController::getAllPosts();
@@ -236,11 +249,11 @@ if ($method === 'GET' && ($uri === '/api/v1/seo' || $uri === '/api/v1/admin/seo'
 if (($method === 'POST' || $method === 'PUT') && $uri === '/api/v1/admin/seo') {
     SeoController::updateSeoSettings();
 }
-if ($method === 'GET' && ($uri === '/api/v1/sitemap.xml' || $uri === '/sitemap.xml')) {
-    SeoController::generateSitemapXml();
+if ($method === 'GET' && in_array($uri, ['/api/v1/sitemap.xml', '/api/v1/public/sitemap.xml'], true)) {
+    SiteController::sitemap(($_GET['raw'] ?? null) === 'true');
 }
-if ($method === 'GET' && ($uri === '/api/v1/robots.txt' || $uri === '/robots.txt')) {
-    SeoController::getRobotsTxt();
+if ($method === 'GET' && in_array($uri, ['/api/v1/robots.txt', '/api/v1/public/robots.txt'], true)) {
+    SiteController::robots(($_GET['raw'] ?? null) === 'true');
 }
 
 // 8. AIOS Security Suite

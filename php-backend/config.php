@@ -1,42 +1,24 @@
 <?php
-/**
- * Signalux Production Backend - DirectAdmin Configuration
- * Database: soheils4_signalux
- */
+// Configure these variables in the server environment, outside the document root.
+$env = static fn(string $name, string $default = ''): string =>
+    getenv($name) === false ? $default : getenv($name);
 
-// Environment settings
-define('APP_ENV', 'production');
-define('APP_DEBUG', false);
-
-// Database Connection Settings (DirectAdmin MySQL)
-define('DB_HOST', 'localhost');
-define('DB_PORT', '3306');
-define('DB_NAME', 'soheils4_signalux');
-define('DB_USER', 'soheils4_signalux');
-define('DB_PASS', 'bCe26jbu9qXAtmDGZ4dN');
-define('DB_CHARSET', 'utf8mb4');
-
-// JWT Security Secrets
-define('JWT_ACCESS_SECRET', 'signalux_jwt_access_secret_production_2026_super_key');
-define('JWT_REFRESH_SECRET', 'signalux_jwt_refresh_secret_production_2026_super_key');
-define('JWT_ACCESS_EXPIRY', 900); // 15 Minutes in seconds
-define('JWT_REFRESH_EXPIRY', 604800); // 7 Days in seconds
-
-// Initial Admin fallback credentials
-define('INITIAL_ADMIN_EMAIL', 'admin@signalux.ir');
-define('INITIAL_ADMIN_PASSWORD', 'SignaluxSuperAdmin2026!');
-
-// CORS & Allowed Origins
-define('ALLOWED_ORIGINS', '*'); // Or set to 'https://yourdomain.com'
-
-// Error Reporting
-if (APP_DEBUG) {
-    error_reporting(E_ALL);
-    ini_set('display_errors', '1');
-} else {
-    error_reporting(0);
-    ini_set('display_errors', '0');
-}
-
-// Timezone
-date_default_timezone_set('Asia/Tehran');
+return [
+    'app_url' => $env('APP_URL', 'https://signalux.ir'),
+    'gsc_verification' => $env('GSC_VERIFICATION_CODE'),
+    'cors_origin' => $env('CORS_ORIGIN'),
+    'db' => [
+        'host' => $env('DB_HOST', 'localhost'),
+        'port' => $env('DB_PORT', '3306'),
+        'database' => $env('DB_NAME'),
+        'username' => $env('DB_USER'),
+        'password' => $env('DB_PASS'),
+        'charset' => 'utf8mb4',
+    ],
+    'jwt' => [
+        'access_secret' => $env('JWT_ACCESS_SECRET'),
+        'refresh_secret' => $env('JWT_REFRESH_SECRET'),
+        'access_expiry' => 900,
+        'refresh_expiry' => 604800,
+    ],
+];

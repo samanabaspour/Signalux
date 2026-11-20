@@ -58,8 +58,10 @@ export function errorHandlerMiddleware(
 ) {
   const statusCode = err.statusCode || err.status || 500;
   const errorCode = err.errorCode || 'INTERNAL_SERVER_ERROR';
-  const message = err.message || 'خطای غیرمنتظره‌ای در سرور رخ داد.';
-  const details = err.details || undefined;
+  const message = statusCode >= 500 && !(err instanceof AppError)
+    ? 'خطای غیرمنتظره‌ای در سرور رخ داد.'
+    : err.message || 'خطای غیرمنتظره‌ای در سرور رخ داد.';
+  const details = statusCode < 500 ? err.details : undefined;
 
   if (statusCode === 500) {
     console.error(`[SERVER_ERROR] [ReqId: ${req.correlationId || 'N/A'}]`, err);

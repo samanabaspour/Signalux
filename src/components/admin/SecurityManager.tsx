@@ -932,17 +932,7 @@ export const SecurityManager: React.FC = () => {
                         className="w-full bg-[#100d17] border border-white/10 rounded-xl px-3 py-2 text-xs font-mono text-white focus:outline-none focus:border-emerald-400"
                       />
                     </div>
-                    <div>
-                      <label className="block text-[11px] font-mono text-white/70 mb-1">Turnstile Secret Key</label>
-                      <input
-                        type="password"
-                        dir="ltr"
-                        value={settings.turnstileSecretKey || ''}
-                        onChange={e => handleUpdate('turnstileSecretKey', e.target.value)}
-                        placeholder="0x4AAAAAAA..."
-                        className="w-full bg-[#100d17] border border-white/10 rounded-xl px-3 py-2 text-xs font-mono text-white focus:outline-none focus:border-emerald-400"
-                      />
-                    </div>
+                    <p className="text-xs text-white/70">کلید خصوصی در تنظیمات سرور قرار می‌گیرد.</p>
                   </div>
                 )}
               </div>

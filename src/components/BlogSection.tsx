@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'motion/react';
 import {
   Search,
@@ -6,6 +6,9 @@ import {
   Eye,
   Calendar,
   ChevronLeft,
+  ChevronRight,
+  Pause,
+  Play,
   Sparkles,
   BookOpen
 } from 'lucide-react';
@@ -23,6 +26,18 @@ interface BlogSectionProps {
 
 const ITEMS_PER_PAGE = 9;
 
+function advanceArticle(track: HTMLDivElement, direction: number, total: number) {
+  const width = track.clientWidth;
+  if (!width) return;
+  const current = Math.round(Math.abs(track.scrollLeft) / width);
+  const next = (current + direction + total) % total;
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  track.scrollTo({
+    left: -next * width,
+    behavior: reduceMotion || Math.abs(next - current) > 1 ? 'instant' : 'smooth',
+  });
+}
+
 export const BlogSection: React.FC<BlogSectionProps> = ({
   onArticleSelect,
   isHomePage = true,
@@ -35,6 +50,9 @@ export const BlogSection: React.FC<BlogSectionProps> = ({
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [currentPage, setCurrentPage] = useState<number>(1);
+  const [paused, setPaused] = useState(false);
+  const articleTrack = useRef<HTMLDivElement>(null);
+  const lastScroll = useRef(0);
 
   const categories = [
     { id: 'all', label: 'همه مقالات' },
@@ -67,6 +85,30 @@ export const BlogSection: React.FC<BlogSectionProps> = ({
   const displayedPosts = isHomePage
     ? posts.slice(0, 6)
     : posts.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+
+  useEffect(() => {
+    const track = articleTrack.current;
+    if (!isHomePage || paused || !track || displayedPosts.length < 2) return;
+    const mobile = window.matchMedia('(max-width: 47.999rem)');
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+    let visible = false;
+    const observer = new IntersectionObserver(([entry]) => { visible = entry.isIntersecting; });
+    observer.observe(track);
+    const timer = window.setInterval(() => {
+      if (mobile.matches && visible && !document.hidden && !reducedMotion.matches &&
+        !track.matches(':focus-within') && performance.now() - lastScroll.current > 1200) {
+        advanceArticle(track, 1, displayedPosts.length);
+      }
+    }, 4500);
+    return () => {
+      observer.disconnect();
+      window.clearInterval(timer);
+    };
+  }, [isHomePage, loading, paused, displayedPosts.length]);
+
+  function moveArticle(direction: number) {
+    if (articleTrack.current) advanceArticle(articleTrack.current, direction, displayedPosts.length);
+  }
 
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
@@ -124,7 +166,9 @@ export const BlogSection: React.FC<BlogSectionProps> = ({
         {loading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {[1, 2, 3].map(i => (
-              <div key={i} className="h-96 rounded-3xl bg-zinc-900/40 border border-zinc-800 animate-pulse" />
+              <div key={i} className={`h-96 rounded-3xl bg-zinc-900/40 border border-zinc-800 animate-pulse ${
+                isHomePage && i > 1 ? 'hidden md:block' : ''
+              }`} />
             ))}
           </div>
         ) : displayedPosts.length === 0 ? (
@@ -135,7 +179,14 @@ export const BlogSection: React.FC<BlogSectionProps> = ({
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            <div
+              ref={isHomePage ? articleTrack : undefined}
+              onScroll={isHomePage ? () => { lastScroll.current = performance.now(); } : undefined}
+              dir={isHomePage ? 'rtl' : undefined}
+              className={isHomePage
+                ? 'flex snap-x snap-mandatory overflow-x-auto [scrollbar-width:none] md:grid md:grid-cols-2 md:gap-8 md:overflow-visible lg:grid-cols-3'
+                : 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8'}
+            >
               {displayedPosts.map((post, idx) => (
                 <motion.article
                   key={post.id}
@@ -143,7 +194,9 @@ export const BlogSection: React.FC<BlogSectionProps> = ({
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.4, delay: idx * 0.08 }}
                   onClick={() => handleOpenArticle(post)}
-                  className="group bg-zinc-900/60 hover:bg-zinc-900/90 border border-zinc-800/80 hover:border-amber-500/40 rounded-3xl overflow-hidden transition-all duration-300 flex flex-col justify-between cursor-pointer hover:shadow-2xl hover:shadow-amber-500/10"
+                  className={`group bg-zinc-900/60 hover:bg-zinc-900/90 border border-zinc-800/80 hover:border-amber-500/40 rounded-3xl overflow-hidden transition-all duration-300 flex flex-col justify-between cursor-pointer hover:shadow-2xl hover:shadow-amber-500/10 ${
+                    isHomePage ? 'max-md:w-full max-md:shrink-0 max-md:snap-start' : ''
+                  }`}
                 >
                   <div>
                     {/* Featured Image */}
@@ -233,6 +286,22 @@ export const BlogSection: React.FC<BlogSectionProps> = ({
                 </motion.article>
               ))}
             </div>
+            {isHomePage && displayedPosts.length > 1 && (
+              <div className="mt-4 flex justify-center gap-2 md:hidden">
+                <button type="button" aria-label="مقالهٔ قبلی" onClick={() => moveArticle(-1)}
+                  className="grid size-11 place-items-center rounded-md border border-amber-500/30 text-amber-300">
+                  <ChevronRight size={18} aria-hidden="true" />
+                </button>
+                <button type="button" aria-label="توقف نمایش خودکار مقالات" aria-pressed={paused} onClick={() => setPaused(value => !value)}
+                  className="grid size-11 place-items-center rounded-md border border-amber-500/30 text-amber-300">
+                  {paused ? <Play size={17} aria-hidden="true" /> : <Pause size={17} aria-hidden="true" />}
+                </button>
+                <button type="button" aria-label="مقالهٔ بعدی" onClick={() => moveArticle(1)}
+                  className="grid size-11 place-items-center rounded-md border border-amber-500/30 text-amber-300">
+                  <ChevronLeft size={18} aria-hidden="true" />
+                </button>
+              </div>
+            )}
 
             {/* Pagination for Archive Page */}
             {!isHomePage && (

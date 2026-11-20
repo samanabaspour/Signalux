@@ -15,7 +15,6 @@ export const PortfolioSection: React.FC<PortfolioSectionProps> = ({
   onViewAllProjects
 }) => {
   const [projectsList, setProjectsList] = useState<PortfolioProject[]>(PORTFOLIO_PROJECTS);
-  const [selectedFilter, setSelectedFilter] = useState<'all' | 'web' | 'marketing' | 'seo'>('all');
 
   useEffect(() => {
     fetchProjects().then(data => {
@@ -25,10 +24,7 @@ export const PortfolioSection: React.FC<PortfolioSectionProps> = ({
     });
   }, []);
 
-  const displayedProjects = (selectedFilter === 'all'
-    ? projectsList
-    : projectsList.filter((p) => p.category === selectedFilter)
-  ).slice(0, 4);
+  const displayedProjects = projectsList.slice(0, 4);
 
   return (
     <section id="portfolio" className="relative py-28 px-4 sm:px-6 lg:px-8 bg-[#070609] border-b border-amber-500/15 overflow-hidden">
@@ -58,28 +54,6 @@ export const PortfolioSection: React.FC<PortfolioSectionProps> = ({
           >
             پروژه‌هایی که معیار کیفیت را <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-200 via-amber-400 to-yellow-500">تغییر داده‌اند</span>
           </motion.h2>
-        </div>
-
-        {/* Filter Buttons */}
-        <div className="flex flex-wrap items-center justify-center gap-2 mb-12">
-          {[
-            { id: 'all', label: 'همه پروژه‌ها' },
-            { id: 'web', label: 'توسعه وب و اپلیکیشن' },
-            { id: 'marketing', label: 'دیجیتال مارکتینگ' },
-            { id: 'seo', label: 'سئو و بهینه‌سازی' },
-          ].map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setSelectedFilter(tab.id as any)}
-              className={`px-5 py-2.5 text-xs font-bold uppercase tracking-widest transition-all duration-200 cursor-pointer border rounded-[5px] ${
-                selectedFilter === tab.id
-                  ? 'bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-500 border-amber-400 text-slate-950 shadow-[0_0_20px_rgba(212,175,55,0.35)]'
-                  : 'bg-[#121017] border-amber-500/20 text-amber-100/60 hover:text-amber-200 hover:border-amber-400/40'
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
         </div>
 
         {/* Projects Grid */}

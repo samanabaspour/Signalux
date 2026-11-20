@@ -1,220 +1,113 @@
 <?php
-/**
- * Auth Controller (JWT Login, Token Rotation, Me, Logout)
- */
 
 namespace Signalux\Controllers;
 
-use Signalux\Core\Database;
-use Signalux\Core\Response;
-use Signalux\Core\JWT;
-use Signalux\Core\Auth;
 use PDO;
+use Signalux\Core\Auth;
+use Signalux\Core\JWT;
+use Signalux\Core\Response;
 
 class AuthController {
+    private static function issueTokens(PDO $db, string $userId, array $jwt): array {
+        $sessionId = bin2hex(random_bytes(16));
+        $claims = ['sub' => $userId, 'sessionId' => $sessionId];
+        $access = JWT::encode($claims + ['type' => 'access'], $jwt['access_secret'], $jwt['access_expiry']);
+        $refresh = JWT::encode($claims + ['type' => 'refresh'], $jwt['refresh_secret'], $jwt['refresh_expiry']);
+        $query = $db->prepare('INSERT INTO refresh_tokens (id, userId, tokenHash, expiresAt, ipAddress, userAgent)
+            VALUES (?, ?, ?, DATE_ADD(NOW(), INTERVAL ? SECOND), ?, ?)');
+        $query->execute([
+            $sessionId, $userId, hash('sha256', $refresh), $jwt['refresh_expiry'],
+            $_SERVER['REMOTE_ADDR'] ?? null, $_SERVER['HTTP_USER_AGENT'] ?? null,
+        ]);
+        return ['accessToken' => $access, 'refreshToken' => $refresh];
+    }
 
     public static function login(): void {
         $input = Response::getJsonInput();
-        $email = strtolower(trim($input['email'] ?? ''));
-        $password = $input['password'] ?? '';
-
-        if (empty($email) || empty($password)) {
-            Response::error('ایمیل و رمز عبور الزامی است.', 400, 'VALIDATION_ERROR');
+        $email = is_string($input['email'] ?? null) ? strtolower(trim($input['email'])) : '';
+        $password = $input['password'] ?? null;
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL) || !is_string($password) || $password === '' || strlen($password) > 256) {
+            Response::error('ایمیل و رمز عبور معتبر الزامی است.', 400, 'VALIDATION_ERROR');
         }
 
-        $config = require __DIR__ . '/../config.php';
-        $db = Database::getConnection();
-
-        $user = null;
-        $roles = [];
-        $permissions = [];
-
-        if ($db) {
-            $stmt = $db->prepare("SELECT * FROM users WHERE email = ? LIMIT 1");
-            $stmt->execute([$email]);
-            $user = $stmt->fetch();
-
-            if ($user) {
-                // Verify password
-                if (!password_verify($password, $user['password_hash'])) {
-                    Response::error('ایمیل یا رمز عبور وارد شده صحیح نیست.', 401, 'INVALID_CREDENTIALS');
-                }
-
-                if ($user['status'] !== 'ACTIVE') {
-                    Response::error('حساب کاربری شما غیرفعال یا معلق شده است.', 403, 'ACCOUNT_DISABLED');
-                }
-
-                // Fetch roles
-                $roleStmt = $db->prepare("SELECT r.name FROM roles r JOIN user_roles ur ON ur.role_id = r.id WHERE ur.user_id = ?");
-                $roleStmt->execute([$user['id']]);
-                $roles = $roleStmt->fetchAll(PDO::FETCH_COLUMN);
-
-                // Fetch permissions
-                $permStmt = $db->prepare("
-                    SELECT DISTINCT p.permission_key 
-                    FROM permissions p 
-                    JOIN role_permissions rp ON rp.permission_id = p.id 
-                    JOIN user_roles ur ON ur.role_id = rp.role_id 
-                    WHERE ur.user_id = ?
-                ");
-                $permStmt->execute([$user['id']]);
-                $permissions = in_array('SUPER_ADMIN', $roles) ? ['*'] : $permStmt->fetchAll(PDO::FETCH_COLUMN);
-
-                // Update last login
-                $db->prepare("UPDATE users SET last_login_at = NOW() WHERE id = ?")->execute([$user['id']]);
-            }
+        Auth::tokenConfig();
+        $db = Auth::database();
+        $query = $db->prepare('SELECT id, firstName, lastName, email, phone, avatar, passwordHash, status FROM users WHERE email = ?');
+        $query->execute([$email]);
+        $user = $query->fetch();
+        if (!$user || $user['status'] !== 'ACTIVE' || !password_verify($password, $user['passwordHash'])) {
+            Response::error('ایمیل یا رمز عبور وارد شده صحیح نیست.', 401, 'INVALID_CREDENTIALS');
         }
+        self::createSession($db, $user);
+    }
 
-        // Fallback check for initial admin if DB is fresh
-        if (!$user) {
-            if ($email === strtolower($config['initial_admin']['email']) && $password === $config['initial_admin']['password']) {
-                $user = [
-                    'id'         => 'usr-super-admin-01',
-                    'first_name' => $config['initial_admin']['first_name'],
-                    'last_name'  => $config['initial_admin']['last_name'],
-                    'email'      => $config['initial_admin']['email'],
-                    'phone'      => '۰۹۱۲۰۰۰۰۰۰۰',
-                    'avatar'     => null,
-                ];
-                $roles = ['SUPER_ADMIN'];
-                $permissions = ['*'];
-            } else {
-                Response::error('ایمیل یا رمز عبور وارد شده صحیح نیست.', 401, 'INVALID_CREDENTIALS');
-            }
+    public static function createSession(PDO $db, array $user): void {
+        if ($user['status'] !== 'ACTIVE') {
+            Response::error('حساب یا نشست معتبر نیست.', 401, 'UNAUTHORIZED');
         }
-
-        // Generate Tokens
-        $accessToken = JWT::encode([
-            'sub'   => $user['id'],
-            'email' => $user['email'],
-            'roles' => $roles,
-            'type'  => 'access'
-        ], $config['jwt']['access_secret'], $config['jwt']['access_expiry']);
-
-        $refreshToken = JWT::encode([
-            'sub'  => $user['id'],
-            'type' => 'refresh'
-        ], $config['jwt']['refresh_secret'], $config['jwt']['refresh_expiry']);
-
-        // Save refresh token hash in database
-        if ($db) {
-            $tokenHash = hash('sha256', $refreshToken);
-            $tokenStmt = $db->prepare("
-                INSERT INTO refresh_tokens (id, user_id, token_hash, expires_at, ip_address, user_agent)
-                VALUES (?, ?, ?, DATE_ADD(NOW(), INTERVAL 7 DAY), ?, ?)
-            ");
-            $tokenStmt->execute([
-                'rf-' . time() . '-' . rand(100, 999),
-                $user['id'],
-                $tokenHash,
-                $_SERVER['REMOTE_ADDR'] ?? null,
-                $_SERVER['HTTP_USER_AGENT'] ?? null
-            ]);
+        $jwt = Auth::tokenConfig();
+        $profile = Auth::profile($db, $user);
+        $db->beginTransaction();
+        try {
+            $tokens = self::issueTokens($db, $user['id'], $jwt);
+            $db->prepare('UPDATE users SET lastLoginAt = NOW() WHERE id = ?')->execute([$user['id']]);
+            $db->commit();
+        } catch (\Throwable $error) {
+            if ($db->inTransaction()) $db->rollBack();
+            throw $error;
         }
-
-        Response::json([
-            'accessToken'  => $accessToken,
-            'refreshToken' => $refreshToken,
-            'user'         => [
-                'id'          => $user['id'],
-                'firstName'   => $user['first_name'],
-                'lastName'    => $user['last_name'],
-                'email'       => $user['email'],
-                'phone'       => $user['phone'] ?? null,
-                'avatar'      => $user['avatar'] ?? null,
-                'roles'       => $roles,
-                'permissions' => $permissions
-            ]
-        ]);
+        Response::json($tokens + ['user' => $profile]);
     }
 
     public static function refresh(): void {
-        $input = Response::getJsonInput();
-        $refreshToken = $input['refreshToken'] ?? '';
-
-        if (empty($refreshToken)) {
+        $token = Response::getJsonInput()['refreshToken'] ?? null;
+        if (!is_string($token) || $token === '' || strlen($token) > 4096) {
             Response::error('توکن بازیابی الزامی است.', 400, 'VALIDATION_ERROR');
         }
-
-        $config = require __DIR__ . '/../config.php';
-        $payload = JWT::decode($refreshToken, $config['jwt']['refresh_secret']);
-
-        if (!$payload || ($payload['type'] ?? '') !== 'refresh' || !isset($payload['sub'])) {
-            Response::error('توکن بازیابی نامعتبر یا منقضی شده است.', 401, 'INVALID_REFRESH_TOKEN');
+        $jwt = Auth::tokenConfig();
+        $claims = JWT::decode($token, $jwt['refresh_secret']);
+        if (($claims['type'] ?? null) !== 'refresh' || !is_string($claims['sub'] ?? null)
+            || !is_string($claims['sessionId'] ?? null) || !is_int($claims['exp'] ?? null)) {
+            Response::error('توکن بازیابی نامعتبر است.', 401, 'INVALID_REFRESH_TOKEN');
         }
 
-        $userId = $payload['sub'];
-        $db = Database::getConnection();
-
-        if ($db) {
-            $tokenHash = hash('sha256', $refreshToken);
-            $stmt = $db->prepare("SELECT * FROM refresh_tokens WHERE token_hash = ? AND revoked_at IS NULL AND expires_at > NOW()");
-            $stmt->execute([$tokenHash]);
-            $record = $stmt->fetch();
-
-            if (!$record) {
-                Response::error('توکن بازیابی باطل یا منقضی شده است.', 401, 'TOKEN_EXPIRED');
+        $db = Auth::database();
+        $db->beginTransaction();
+        try {
+            $query = $db->prepare("UPDATE refresh_tokens s JOIN users u ON u.id = s.userId
+                SET s.revokedAt = NOW()
+                WHERE s.id = ? AND s.userId = ? AND s.tokenHash = ? AND s.revokedAt IS NULL
+                    AND s.expiresAt > NOW() AND u.status = 'ACTIVE'");
+            $query->execute([$claims['sessionId'], $claims['sub'], hash('sha256', $token)]);
+            if ($query->rowCount() !== 1) {
+                $db->rollBack();
+                Response::error('نشست معتبر نیست.', 401, 'INVALID_REFRESH_TOKEN');
             }
-
-            // Revoke old token (Token Rotation)
-            $db->prepare("UPDATE refresh_tokens SET revoked_at = NOW() WHERE id = ?")->execute([$record['id']]);
+            $tokens = self::issueTokens($db, $claims['sub'], $jwt);
+            $db->commit();
+        } catch (\Throwable $error) {
+            if ($db->inTransaction()) $db->rollBack();
+            throw $error;
         }
-
-        // Issue new tokens
-        $newAccessToken = JWT::encode([
-            'sub'  => $userId,
-            'type' => 'access'
-        ], $config['jwt']['access_secret'], $config['jwt']['access_expiry']);
-
-        $newRefreshToken = JWT::encode([
-            'sub'  => $userId,
-            'type' => 'refresh'
-        ], $config['jwt']['refresh_secret'], $config['jwt']['refresh_expiry']);
-
-        if ($db) {
-            $newTokenHash = hash('sha256', $newRefreshToken);
-            $db->prepare("
-                INSERT INTO refresh_tokens (id, user_id, token_hash, expires_at, ip_address, user_agent)
-                VALUES (?, ?, ?, DATE_ADD(NOW(), INTERVAL 7 DAY), ?, ?)
-            ")->execute([
-                'rf-' . time() . '-' . rand(100, 999),
-                $userId,
-                $newTokenHash,
-                $_SERVER['REMOTE_ADDR'] ?? null,
-                $_SERVER['HTTP_USER_AGENT'] ?? null
-            ]);
-        }
-
-        Response::json([
-            'accessToken'  => $newAccessToken,
-            'refreshToken' => $newRefreshToken
-        ]);
+        Response::json($tokens);
     }
 
     public static function me(): void {
-        $user = Auth::requireAuth();
-        Response::json($user);
+        Response::json(Auth::requireAuth());
     }
 
     public static function logout(): void {
         $user = Auth::requireAuth();
-        $db = Database::getConnection();
-        if ($db) {
-            $input = Response::getJsonInput();
-            if (!empty($input['refreshToken'])) {
-                $hash = hash('sha256', $input['refreshToken']);
-                $db->prepare("UPDATE refresh_tokens SET revoked_at = NOW() WHERE token_hash = ?")->execute([$hash]);
-            }
-        }
+        $session = Auth::accessClaims()['sessionId'];
+        Auth::database()->prepare('UPDATE refresh_tokens SET revokedAt = NOW() WHERE id = ? AND userId = ?')
+            ->execute([$session, $user['id']]);
         Response::json(['message' => 'با موفقیت خارج شدید.']);
     }
 
     public static function logoutAll(): void {
         $user = Auth::requireAuth();
-        $db = Database::getConnection();
-        if ($db) {
-            $db->prepare("UPDATE refresh_tokens SET revoked_at = NOW() WHERE user_id = ? AND revoked_at IS NULL")->execute([$user['id']]);
-        }
+        Auth::database()->prepare('UPDATE refresh_tokens SET revokedAt = NOW() WHERE userId = ? AND revokedAt IS NULL')
+            ->execute([$user['id']]);
         Response::json(['message' => 'تمامی نشست‌های فعال شما باطل شدند.']);
     }
 }

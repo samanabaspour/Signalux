@@ -110,14 +110,6 @@ export const AboutUsPage: React.FC<AboutUsPageProps> = ({
 
         {/* Navigation Bar Header */}
         <div className="flex flex-wrap items-center justify-between gap-4 mb-8 pb-6 border-b border-amber-500/15">
-          <button
-            onClick={onBackToHome}
-            className="inline-flex items-center gap-2 px-4 py-2.5 bg-[#121017] border border-amber-500/20 hover:border-amber-400/50 text-white text-xs font-bold uppercase tracking-wider rounded-[5px] transition-all cursor-pointer group"
-          >
-            <ArrowRight className="w-4 h-4 text-amber-400 group-hover:-translate-x-1 transition-transform" />
-            <span>بازگشت به صفحه اصلی</span>
-          </button>
-
           <div className="flex items-center gap-2 text-xs font-mono text-amber-200/50">
             <button onClick={onBackToHome} className="hover:text-white transition-colors flex items-center gap-1">
               <Home className="w-3.5 h-3.5 text-amber-400" />
@@ -127,13 +119,6 @@ export const AboutUsPage: React.FC<AboutUsPageProps> = ({
             <span className="text-amber-400 font-semibold">درباره آژانس سیگنالوکس</span>
           </div>
 
-          <button
-            onClick={onOpenConsultation}
-            className="px-4 py-2.5 bg-gradient-to-r from-amber-500 via-yellow-500 to-amber-600 hover:from-amber-400 hover:to-yellow-400 text-slate-950 text-xs font-bold uppercase tracking-wider rounded-[5px] transition-all cursor-pointer flex items-center gap-2 shadow-[0_0_20px_rgba(212,175,55,0.25)]"
-          >
-            <Sparkles className="w-4 h-4 text-slate-950" />
-            <span>درخواست مشاوره اختصاصی</span>
-          </button>
         </div>
 
         {/* Hero Section */}

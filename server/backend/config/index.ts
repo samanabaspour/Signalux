@@ -29,10 +29,10 @@ export interface AppConfig {
 export const config: AppConfig = {
   env: process.env.NODE_ENV || 'development',
   port: parseInt(process.env.PORT || '3000', 10),
-  databaseUrl: process.env.DATABASE_URL || 'mysql://soheils4_signalux:bCe26jbu9qXAtmDGZ4dN@localhost:3306/soheils4_signalux',
+  databaseUrl: process.env.DATABASE_URL || '',
   jwt: {
-    accessSecret: process.env.JWT_ACCESS_SECRET || 'signalux_jwt_access_secret_production_2026_super_key',
-    refreshSecret: process.env.JWT_REFRESH_SECRET || 'signalux_jwt_refresh_secret_production_2026_super_key',
+    accessSecret: process.env.JWT_ACCESS_SECRET || '',
+    refreshSecret: process.env.JWT_REFRESH_SECRET || '',
     accessExpiresIn: process.env.JWT_ACCESS_EXPIRES_IN || '15m',
     refreshExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d',
   },
@@ -45,8 +45,13 @@ export const config: AppConfig = {
   },
   initialAdmin: {
     email: (process.env.INITIAL_ADMIN_EMAIL || 'admin@signalux.ir').trim().toLowerCase(),
-    password: process.env.INITIAL_ADMIN_PASSWORD || 'SignaluxSuperAdmin2026!',
+    password: process.env.INITIAL_ADMIN_PASSWORD || '',
     firstName: process.env.INITIAL_ADMIN_FIRST_NAME || 'مدیر',
     lastName: process.env.INITIAL_ADMIN_LAST_NAME || 'ارشد',
   },
 };
+
+export function hasAuthSecrets(): boolean {
+  const { accessSecret, refreshSecret } = config.jwt;
+  return accessSecret.length >= 64 && refreshSecret.length >= 64 && accessSecret !== refreshSecret;
+}

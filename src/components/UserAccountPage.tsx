@@ -1,3 +1,4 @@
+import { customerFetch } from '../services/session';
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -55,15 +56,14 @@ export const UserAccountPage: React.FC<UserAccountPageProps> = ({
     const current = getCurrentUser();
     setUser(current);
     if (current) {
-      loadTickets(current.phone);
+      loadTickets();
     }
   }, []);
 
-  const loadTickets = async (phone?: string) => {
+  const loadTickets = async () => {
     setLoadingTickets(true);
     try {
-      const url = phone ? `/api/v1/tickets?phone=${encodeURIComponent(phone)}` : '/api/v1/tickets';
-      const res = await fetch(url);
+      const res = await customerFetch('/api/v1/tickets');
       const json = await res.json();
       if (json.success && Array.isArray(json.data)) {
         setTickets(json.data);
@@ -88,7 +88,7 @@ export const UserAccountPage: React.FC<UserAccountPageProps> = ({
     setTicketSuccess('');
 
     try {
-      const res = await fetch('/api/v1/tickets', {
+      const res = await customerFetch('/api/v1/tickets', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -107,7 +107,7 @@ export const UserAccountPage: React.FC<UserAccountPageProps> = ({
         setSubject('');
         setMessage('');
         setIsNewTicketOpen(false);
-        loadTickets(user.phone);
+        loadTickets();
       } else {
         setTicketError(json.message || 'خطا در ثبت تیکت');
       }
@@ -124,7 +124,7 @@ export const UserAccountPage: React.FC<UserAccountPageProps> = ({
 
     setSubmittingReply(true);
     try {
-      const res = await fetch(`/api/v1/tickets/${selectedTicket.id}/messages`, {
+      const res = await customerFetch(`/api/v1/tickets/${selectedTicket.id}/messages`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -137,7 +137,7 @@ export const UserAccountPage: React.FC<UserAccountPageProps> = ({
       if (json.success && json.data) {
         setSelectedTicket(json.data);
         setReplyText('');
-        loadTickets(user.phone);
+        loadTickets();
       }
     } catch (err) {
       console.error('Failed to send reply:', err);
@@ -576,7 +576,7 @@ export const UserAccountPage: React.FC<UserAccountPageProps> = ({
                   <p className="text-[11px] text-slate-400">تاریخچه کلیه پیام‌ها و پاسخ‌های کارشناسان استودیو سیگنالوکس</p>
                 </div>
                 <button
-                  onClick={() => loadTickets(user.phone)}
+                  onClick={() => loadTickets()}
                   disabled={loadingTickets}
                   className="p-2 rounded-lg bg-white/5 hover:bg-white/10 text-amber-400 transition-colors"
                   title="بروزرسانی تیکت‌ها"

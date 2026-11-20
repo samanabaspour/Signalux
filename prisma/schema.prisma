@@ -30,6 +30,8 @@ model User {
   lastName        String
   email           String         @unique
   phone           String?
+  verifiedPhone   String?        @unique @db.VarChar(30)
+  googleSubject   String?        @unique @db.VarChar(191)
   passwordHash    String
   avatar          String?
   status          UserStatus     @default(ACTIVE)
@@ -44,6 +46,23 @@ model User {
   createdMedia    Media[]
 
   @@map("users")
+}
+
+model CustomerAuthChallenge {
+  id         String    @id @db.VarChar(64)
+  rateKey    String    @unique @db.VarChar(100)
+  kind       String    @db.VarChar(8)
+  subject    String    @db.VarChar(191)
+  proofHash  String    @db.Char(64)
+  ipKey      String    @db.Char(64)
+  attempts   Int       @default(0)
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([kind, subject, createdAt])
+  @@index([kind, ipKey, createdAt])
+  @@map("customer_auth_challenges")
 }
 
 model Role {
@@ -275,12 +294,14 @@ model SiteSettings {
   heroHeadline   String   @default("خلق تجربه‌های دیجیتال بدون مرز")
   heroSubtitle   String   @default("استودیو سیگنالوکس با بهره‌گیری از طراحی مدرن وب و سئو برند شما را ممتاز می‌کند.")
   contactEmail   String   @default("info@signalux.ir")
-  contactPhone   String   @default("۰۲۱-۸۸۹۹۰۰۱۱")
+  contactPhone   String   @default("۰۹۳۵۲۹۹۷۲۷۲")
   contactAddress String   @default("تهران، خیابان ولیعصر، برج فناوری سیگنال")
   instagramUrl   String   @default("https://instagram.com/signalux")
   linkedinUrl    String   @default("https://linkedin.com/company/signalux")
-  telegramUrl    String   @default("https://t.me/signalux_studio")
+  telegramUrl    String   @default("https://t.me/samanabaspour")
   githubUrl      String   @default("https://github.com/signalux")
+  gtmContainerId String   @default("") @db.VarChar(50)
+  gtmEnabled     Boolean  @default(false)
   updatedAt      DateTime @updatedAt
 
   @@map("site_settings")

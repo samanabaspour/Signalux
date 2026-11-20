@@ -1,10 +1,13 @@
 import { Router, Request, Response } from 'express';
 import { store } from '../store';
+import { authenticateJwt, requirePermissions } from '../backend/common/guards';
+import { readTagManagerSettings, saveTagManagerSettings } from '../backend/services/tag-manager.service';
 
 const router = Router();
+router.use(authenticateJwt);
 
 // GET /api/v1/admin/stats
-router.get('/stats', (req: Request, res: Response) => {
+router.get('/stats', requirePermissions('dashboard.view'), (req: Request, res: Response) => {
   const services = store.getServices();
   const projects = store.getProjects();
   const leads = store.getLeads();
@@ -21,7 +24,7 @@ router.get('/stats', (req: Request, res: Response) => {
 });
 
 // GET /api/v1/admin/leads
-router.get('/leads', (req: Request, res: Response) => {
+router.get('/leads', requirePermissions('leads.view'), (req: Request, res: Response) => {
   res.json({
     success: true,
     data: store.getLeads()
@@ -29,7 +32,7 @@ router.get('/leads', (req: Request, res: Response) => {
 });
 
 // PATCH /api/v1/admin/leads/:id/status
-router.patch('/leads/:id/status', (req: Request, res: Response) => {
+router.patch('/leads/:id/status', requirePermissions('leads.manage'), (req: Request, res: Response) => {
   const { status } = req.body || {};
   if (!['new', 'contacted', 'closed'].includes(status)) {
     return res.status(400).json({ success: false, message: 'Invalid status' });
@@ -44,7 +47,7 @@ router.patch('/leads/:id/status', (req: Request, res: Response) => {
 });
 
 // DELETE /api/v1/admin/leads/:id
-router.delete('/leads/:id', (req: Request, res: Response) => {
+router.delete('/leads/:id', requirePermissions('leads.manage'), (req: Request, res: Response) => {
   const success = store.deleteLead(req.params.id);
   if (!success) {
     return res.status(404).json({ success: false, message: 'Lead not found' });
@@ -53,22 +56,35 @@ router.delete('/leads/:id', (req: Request, res: Response) => {
 });
 
 // GET & PUT /api/v1/admin/settings
-router.get('/settings', (req: Request, res: Response) => {
-  res.json({ success: true, data: store.getSettings() });
+router.get('/settings', requirePermissions('settings.view'), async (_req, res, next) => {
+  try {
+    const tags = await readTagManagerSettings();
+    res.json({ success: true, data: { ...store.getSettings(), ...tags } });
+  } catch (error) {
+    next(error);
+  }
 });
 
-router.put('/settings', (req: Request, res: Response) => {
-  const updated = store.updateSettings(req.body);
-  res.json({ success: true, data: updated });
+router.put('/settings', requirePermissions('settings.manage'), async (req, res, next) => {
+  try {
+    const { gtmContainerId, gtmEnabled, ...settings } = req.body ?? {};
+    const tags = gtmContainerId !== undefined || gtmEnabled !== undefined
+      ? await saveTagManagerSettings({ gtmContainerId, gtmEnabled })
+      : await readTagManagerSettings();
+    const updated = store.updateSettings(settings);
+    res.json({ success: true, data: { ...updated, ...tags } });
+  } catch (error) {
+    next(error);
+  }
 });
 
 // Testimonials Admin Routes
-router.post('/testimonials', (req: Request, res: Response) => {
+router.post('/testimonials', requirePermissions('testimonials.manage'), (req: Request, res: Response) => {
   const created = store.addTestimonial(req.body);
   res.status(201).json({ success: true, data: created });
 });
 
-router.put('/testimonials/:id', (req: Request, res: Response) => {
+router.put('/testimonials/:id', requirePermissions('testimonials.manage'), (req: Request, res: Response) => {
   const updated = store.updateTestimonial(req.params.id, req.body);
   if (!updated) {
     return res.status(404).json({ success: false, message: 'Testimonial not found' });
@@ -76,7 +92,7 @@ router.put('/testimonials/:id', (req: Request, res: Response) => {
   res.json({ success: true, data: updated });
 });
 
-router.delete('/testimonials/:id', (req: Request, res: Response) => {
+router.delete('/testimonials/:id', requirePermissions('testimonials.manage'), (req: Request, res: Response) => {
   const success = store.deleteTestimonial(req.params.id);
   if (!success) {
     return res.status(404).json({ success: false, message: 'Testimonial not found' });
@@ -85,12 +101,12 @@ router.delete('/testimonials/:id', (req: Request, res: Response) => {
 });
 
 // Certificates Admin Routes
-router.post('/certificates', (req: Request, res: Response) => {
+router.post('/certificates', requirePermissions('settings.manage'), (req: Request, res: Response) => {
   const created = store.addCertificate(req.body);
   res.status(201).json({ success: true, data: created });
 });
 
-router.put('/certificates/:id', (req: Request, res: Response) => {
+router.put('/certificates/:id', requirePermissions('settings.manage'), (req: Request, res: Response) => {
   const updated = store.updateCertificate(req.params.id, req.body);
   if (!updated) {
     return res.status(404).json({ success: false, message: 'Certificate not found' });
@@ -98,7 +114,7 @@ router.put('/certificates/:id', (req: Request, res: Response) => {
   res.json({ success: true, data: updated });
 });
 
-router.delete('/certificates/:id', (req: Request, res: Response) => {
+router.delete('/certificates/:id', requirePermissions('settings.manage'), (req: Request, res: Response) => {
   const success = store.deleteCertificate(req.params.id);
   if (!success) {
     return res.status(404).json({ success: false, message: 'Certificate not found' });
@@ -107,12 +123,12 @@ router.delete('/certificates/:id', (req: Request, res: Response) => {
 });
 
 // FAQs Admin Routes
-router.post('/faqs', (req: Request, res: Response) => {
+router.post('/faqs', requirePermissions('faqs.manage'), (req: Request, res: Response) => {
   const created = store.addFaq(req.body);
   res.status(201).json({ success: true, data: created });
 });
 
-router.put('/faqs/:id', (req: Request, res: Response) => {
+router.put('/faqs/:id', requirePermissions('faqs.manage'), (req: Request, res: Response) => {
   const updated = store.updateFaq(req.params.id, req.body);
   if (!updated) {
     return res.status(404).json({ success: false, message: 'FAQ not found' });
@@ -120,7 +136,7 @@ router.put('/faqs/:id', (req: Request, res: Response) => {
   res.json({ success: true, data: updated });
 });
 
-router.delete('/faqs/:id', (req: Request, res: Response) => {
+router.delete('/faqs/:id', requirePermissions('faqs.manage'), (req: Request, res: Response) => {
   const success = store.deleteFaq(req.params.id);
   if (!success) {
     return res.status(404).json({ success: false, message: 'FAQ not found' });
@@ -129,7 +145,7 @@ router.delete('/faqs/:id', (req: Request, res: Response) => {
 });
 
 // POST /api/v1/admin/services
-router.post('/services', (req: Request, res: Response) => {
+router.post('/services', requirePermissions('services.manage'), (req: Request, res: Response) => {
   const newService = req.body;
   if (!newService.title || !newService.id) {
     return res.status(400).json({ success: false, message: 'Title and ID are required' });
@@ -139,7 +155,7 @@ router.post('/services', (req: Request, res: Response) => {
 });
 
 // PUT /api/v1/admin/services/:id
-router.put('/services/:id', (req: Request, res: Response) => {
+router.put('/services/:id', requirePermissions('services.manage'), (req: Request, res: Response) => {
   const updated = store.updateService(req.params.id, req.body);
   if (!updated) {
     return res.status(404).json({ success: false, message: 'Service not found' });
@@ -148,7 +164,7 @@ router.put('/services/:id', (req: Request, res: Response) => {
 });
 
 // DELETE /api/v1/admin/services/:id
-router.delete('/services/:id', (req: Request, res: Response) => {
+router.delete('/services/:id', requirePermissions('services.manage'), (req: Request, res: Response) => {
   const success = store.deleteService(req.params.id);
   if (!success) {
     return res.status(404).json({ success: false, message: 'Service not found' });
@@ -157,7 +173,7 @@ router.delete('/services/:id', (req: Request, res: Response) => {
 });
 
 // POST /api/v1/admin/projects
-router.post('/projects', (req: Request, res: Response) => {
+router.post('/projects', requirePermissions('projects.manage'), (req: Request, res: Response) => {
   const newProject = req.body;
   if (!newProject.title || !newProject.id) {
     return res.status(400).json({ success: false, message: 'Title and ID are required' });
@@ -167,7 +183,7 @@ router.post('/projects', (req: Request, res: Response) => {
 });
 
 // PUT /api/v1/admin/projects/:id
-router.put('/projects/:id', (req: Request, res: Response) => {
+router.put('/projects/:id', requirePermissions('projects.manage'), (req: Request, res: Response) => {
   const updated = store.updateProject(req.params.id, req.body);
   if (!updated) {
     return res.status(404).json({ success: false, message: 'Project not found' });
@@ -176,7 +192,7 @@ router.put('/projects/:id', (req: Request, res: Response) => {
 });
 
 // DELETE /api/v1/admin/projects/:id
-router.delete('/projects/:id', (req: Request, res: Response) => {
+router.delete('/projects/:id', requirePermissions('projects.manage'), (req: Request, res: Response) => {
   const success = store.deleteProject(req.params.id);
   if (!success) {
     return res.status(404).json({ success: false, message: 'Project not found' });
@@ -186,12 +202,12 @@ router.delete('/projects/:id', (req: Request, res: Response) => {
 
 // --- ADMIN USERS & RBAC ---
 // GET /api/v1/admin/users
-router.get('/users', (req: Request, res: Response) => {
+router.get('/users', requirePermissions('roles.manage'), (req: Request, res: Response) => {
   res.json({ success: true, data: store.getAdminUsers() });
 });
 
 // POST /api/v1/admin/users
-router.post('/users', (req: Request, res: Response) => {
+router.post('/users', requirePermissions('roles.manage'), (req: Request, res: Response) => {
   const { username, fullName, email, role, phone, permissions, avatar, isActive } = req.body || {};
   if (!username || !fullName || !email) {
     return res.status(400).json({ success: false, message: 'نام کاربری، نام کامل و ایمیل الزامی هستند.' });
@@ -210,8 +226,12 @@ router.post('/users', (req: Request, res: Response) => {
 });
 
 // PUT /api/v1/admin/users/:id
-router.put('/users/:id', (req: Request, res: Response) => {
-  const updated = store.updateAdminUser(req.params.id, req.body);
+router.put('/users/:id', requirePermissions('roles.manage'), (req: Request, res: Response) => {
+  const { username, fullName, email, role, phone, permissions, avatar, isActive } = req.body || {};
+  const fields = { username, fullName, email, role, phone, permissions, avatar, isActive };
+  const updated = store.updateAdminUser(req.params.id, Object.fromEntries(
+    Object.entries(fields).filter(([, value]) => value !== undefined)
+  ));
   if (!updated) {
     return res.status(404).json({ success: false, message: 'کاربر مورد نظر یافت نشد.' });
   }
@@ -219,7 +239,7 @@ router.put('/users/:id', (req: Request, res: Response) => {
 });
 
 // DELETE /api/v1/admin/users/:id
-router.delete('/users/:id', (req: Request, res: Response) => {
+router.delete('/users/:id', requirePermissions('roles.manage'), (req: Request, res: Response) => {
   const success = store.deleteAdminUser(req.params.id);
   if (!success) {
     return res.status(400).json({ success: false, message: 'امکان حذف کاربر اصلی وجود ندارد.' });
@@ -229,12 +249,12 @@ router.delete('/users/:id', (req: Request, res: Response) => {
 
 // --- BLOG MANAGEMENT ---
 // GET /api/v1/admin/blog
-router.get('/blog', (req: Request, res: Response) => {
+router.get('/blog', requirePermissions('blog.manage'), (req: Request, res: Response) => {
   res.json({ success: true, data: store.getBlogPosts() });
 });
 
 // POST /api/v1/admin/blog
-router.post('/blog', (req: Request, res: Response) => {
+router.post('/blog', requirePermissions('blog.manage'), (req: Request, res: Response) => {
   const { title, slug, excerpt, content, category, featuredImage, tags, author, readingTime, status, metaTitle, metaDescription, metaKeywords, focusKeyword } = req.body || {};
   if (!title) {
     return res.status(400).json({ success: false, message: 'عنوان مقاله الزامی است.' });
@@ -259,7 +279,7 @@ router.post('/blog', (req: Request, res: Response) => {
 });
 
 // PUT /api/v1/admin/blog/:id
-router.put('/blog/:id', (req: Request, res: Response) => {
+router.put('/blog/:id', requirePermissions('blog.manage'), (req: Request, res: Response) => {
   const updated = store.updateBlogPost(req.params.id, req.body);
   if (!updated) {
     return res.status(404).json({ success: false, message: 'مقاله مورد نظر یافت نشد.' });
@@ -268,7 +288,7 @@ router.put('/blog/:id', (req: Request, res: Response) => {
 });
 
 // DELETE /api/v1/admin/blog/:id
-router.delete('/blog/:id', (req: Request, res: Response) => {
+router.delete('/blog/:id', requirePermissions('blog.manage'), (req: Request, res: Response) => {
   const success = store.deleteBlogPost(req.params.id);
   if (!success) {
     return res.status(404).json({ success: false, message: 'مقاله یافت نشد.' });
@@ -278,19 +298,19 @@ router.delete('/blog/:id', (req: Request, res: Response) => {
 
 // --- SEO SUITE MANAGEMENT ---
 // GET /api/v1/admin/seo
-router.get('/seo', (req: Request, res: Response) => {
+router.get('/seo', requirePermissions('seo.manage'), (req: Request, res: Response) => {
   res.json({ success: true, data: store.getSeoSettings() });
 });
 
 // PUT /api/v1/admin/seo
-router.put('/seo', (req: Request, res: Response) => {
+router.put('/seo', requirePermissions('seo.manage'), (req: Request, res: Response) => {
   const updated = store.updateSeoSettings(req.body);
   res.json({ success: true, data: updated });
 });
 
 // --- BLOG COMMENTS MANAGEMENT ---
 // GET /api/v1/admin/comments
-router.get('/comments', (req: Request, res: Response) => {
+router.get('/comments', requirePermissions('comments.manage'), (req: Request, res: Response) => {
   const { status, postId } = req.query;
   const comments = store.getComments(
     typeof postId === 'string' ? postId : undefined,
@@ -300,7 +320,7 @@ router.get('/comments', (req: Request, res: Response) => {
 });
 
 // PATCH /api/v1/admin/comments/:id/status
-router.patch('/comments/:id/status', (req: Request, res: Response) => {
+router.patch('/comments/:id/status', requirePermissions('comments.manage'), (req: Request, res: Response) => {
   const { status } = req.body || {};
   if (!['pending', 'approved', 'rejected'].includes(status)) {
     return res.status(400).json({ success: false, message: 'وضعیت نامعتبر است.' });
@@ -313,7 +333,7 @@ router.patch('/comments/:id/status', (req: Request, res: Response) => {
 });
 
 // POST /api/v1/admin/comments/:id/reply
-router.post('/comments/:id/reply', (req: Request, res: Response) => {
+router.post('/comments/:id/reply', requirePermissions('comments.manage'), (req: Request, res: Response) => {
   const { author, content } = req.body || {};
   if (!content) {
     return res.status(400).json({ success: false, message: 'متن پاسخ الزامی است.' });
@@ -326,7 +346,7 @@ router.post('/comments/:id/reply', (req: Request, res: Response) => {
 });
 
 // DELETE /api/v1/admin/comments/:id
-router.delete('/comments/:id', (req: Request, res: Response) => {
+router.delete('/comments/:id', requirePermissions('comments.manage'), (req: Request, res: Response) => {
   const success = store.deleteComment(req.params.id);
   if (!success) {
     return res.status(404).json({ success: false, message: 'دیدگاه یافت نشد.' });

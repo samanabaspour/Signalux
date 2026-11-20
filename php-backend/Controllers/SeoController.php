@@ -35,6 +35,7 @@ class SeoController {
      * Update Master SEO Settings
      */
     public static function updateSeoSettings(): void {
+        Auth::requirePermission('seo.manage');
         $input = Response::getJsonInput();
         $db = Database::getConnection();
 
@@ -53,7 +54,7 @@ class SeoController {
             $enableJsonLdSchema = !empty($input['enableJsonLdSchema']) ? 1 : 0;
             $organizationName = $input['organizationName'] ?? 'استودیو دیجیتال سیگنالوکس';
             $organizationLogo = $input['organizationLogo'] ?? '';
-            $organizationPhone = $input['organizationPhone'] ?? '۰۲۱-۸۸۹۹۰۰۱۱';
+            $organizationPhone = $input['organizationPhone'] ?? '۰۹۳۵۲۹۹۷۲۷۲';
             $twitterHandle = $input['twitterHandle'] ?? '@signalux_ir';
             $defaultOgImage = $input['defaultOgImage'] ?? '';
             $redirects = is_array($input['redirects'] ?? null) ? json_encode($input['redirects'], JSON_UNESCAPED_UNICODE) : '[]';
@@ -110,118 +111,6 @@ class SeoController {
         Response::error('خطا در ذخیره تنظیمات سئو.', 500);
     }
 
-    /**
-     * Generate & Serve Dynamic Sitemap.xml
-     */
-    public static function generateSitemapXml(): void {
-        $db = Database::getConnection();
-        $baseUrl = 'https://signalux.ir';
-
-        if ($db) {
-            $stmt = $db->query("SELECT canonicalBaseUrl FROM seo_settings LIMIT 1");
-            $url = $stmt->fetchColumn();
-            if (!empty($url)) {
-                $baseUrl = rtrim($url, '/');
-            }
-        }
-
-        $xml = '<?xml version="1.0" encoding="UTF-8"?>' . "\n";
-        $xml .= '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . "\n";
-
-        // Static core routes
-        $staticRoutes = [
-            ['loc' => '/', 'priority' => '1.0', 'changefreq' => 'daily'],
-            ['loc' => '/services', 'priority' => '0.9', 'changefreq' => 'weekly'],
-            ['loc' => '/portfolio', 'priority' => '0.9', 'changefreq' => 'weekly'],
-            ['loc' => '/blog', 'priority' => '0.9', 'changefreq' => 'daily'],
-            ['loc' => '/about-us', 'priority' => '0.7', 'changefreq' => 'monthly'],
-            ['loc' => '/contact-us', 'priority' => '0.8', 'changefreq' => 'monthly'],
-            ['loc' => '/web-design', 'priority' => '0.85', 'changefreq' => 'weekly'],
-            ['loc' => '/seo-services', 'priority' => '0.85', 'changefreq' => 'weekly']
-        ];
-
-        $today = date('Y-m-d');
-
-        foreach ($staticRoutes as $r) {
-            $xml .= "  <url>\n";
-            $xml .= "    <loc>{$baseUrl}{$r['loc']}</loc>\n";
-            $xml .= "    <lastmod>{$today}</lastmod>\n";
-            $xml .= "    <changefreq>{$r['changefreq']}</changefreq>\n";
-            $xml .= "    <priority>{$r['priority']}</priority>\n";
-            $xml .= "  </url>\n";
-        }
-
-        // Dynamic blog articles
-        if ($db) {
-            $stmt = $db->query("SELECT slug, publishedAt, updatedAt FROM blog_posts WHERE status = 'published' ORDER BY publishedAt DESC");
-            $posts = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-            foreach ($posts as $post) {
-                $postDate = !empty($post['updatedAt']) ? date('Y-m-d', strtotime($post['updatedAt'])) : date('Y-m-d', strtotime($post['publishedAt']));
-                $xml .= "  <url>\n";
-                $xml .= "    <loc>{$baseUrl}/blog/{$post['slug']}</loc>\n";
-                $xml .= "    <lastmod>{$postDate}</lastmod>\n";
-                $xml .= "    <changefreq>weekly</changefreq>\n";
-                $xml .= "    <priority>0.8</priority>\n";
-                $xml .= "  </url>\n";
-            }
-
-            // Dynamic Projects
-            $stmt = $db->query("SELECT slug, updatedAt FROM projects WHERE is_published = 1");
-            $projects = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-            foreach ($projects as $proj) {
-                $pDate = !empty($proj['updatedAt']) ? date('Y-m-d', strtotime($proj['updatedAt'])) : $today;
-                $xml .= "  <url>\n";
-                $xml .= "    <loc>{$baseUrl}/portfolio/{$proj['slug']}</loc>\n";
-                $xml .= "    <lastmod>{$pDate}</lastmod>\n";
-                $xml .= "    <changefreq>monthly</changefreq>\n";
-                $xml .= "    <priority>0.75</priority>\n";
-                $xml .= "  </url>\n";
-            }
-        }
-
-        $xml .= '</urlset>';
-
-        // Return XML header if requested via GET /sitemap.xml
-        if (isset($_GET['raw']) && $_GET['raw'] === 'true') {
-            header('Content-Type: application/xml; charset=utf-8');
-            echo $xml;
-            exit;
-        }
-
-        Response::json([
-            'sitemapXml' => $xml,
-            'urlCount'   => substr_count($xml, '<url>'),
-            'baseUrl'    => $baseUrl,
-            'generatedAt' => date('Y-m-d H:i:s')
-        ]);
-    }
-
-    /**
-     * Get or Serve Robots.txt
-     */
-    public static function getRobotsTxt(): void {
-        $db = Database::getConnection();
-        $robots = "User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /api/v1/admin/\n\nSitemap: https://signalux.ir/sitemap.xml";
-
-        if ($db) {
-            $stmt = $db->query("SELECT robotsTxt FROM seo_settings LIMIT 1");
-            $txt = $stmt->fetchColumn();
-            if (!empty($txt)) {
-                $robots = $txt;
-            }
-        }
-
-        if (isset($_GET['raw']) && $_GET['raw'] === 'true') {
-            header('Content-Type: text/plain; charset=utf-8');
-            echo $robots;
-            exit;
-        }
-
-        Response::json(['robotsTxt' => $robots]);
-    }
-
     private static function formatSeoSettings(array $row): array {
         $redirects = [];
         if (!empty($row['redirects'])) {
@@ -250,7 +139,7 @@ class SeoController {
             'enableJsonLdSchema'      => (bool)($row['enableJsonLdSchema'] ?? 1),
             'organizationName'        => $row['organizationName'] ?? 'استودیو دیجیتال سیگنالوکس',
             'organizationLogo'        => $row['organizationLogo'] ?? '',
-            'organizationPhone'       => $row['organizationPhone'] ?? '۰۲۱-۸۸۹۹۰۰۱۱',
+            'organizationPhone'       => $row['organizationPhone'] ?? '۰۹۳۵۲۹۹۷۲۷۲',
             'twitterHandle'           => $row['twitterHandle'] ?? '@signalux_ir',
             'defaultOgImage'          => $row['defaultOgImage'] ?? '',
             'redirects'               => $redirects,
@@ -274,7 +163,7 @@ class SeoController {
             'enableJsonLdSchema'     => true,
             'organizationName'       => 'استودیو دیجیتال سیگنالوکس',
             'organizationLogo'       => '',
-            'organizationPhone'      => '۰۲۱-۸۸۹۹۰۰۱۱',
+            'organizationPhone'      => '۰۹۳۵۲۹۹۷۲۷۲',
             'twitterHandle'          => '@signalux_ir',
             'defaultOgImage'         => '',
             'redirects'              => [

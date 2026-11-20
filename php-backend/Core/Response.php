@@ -8,12 +8,15 @@ namespace Signalux\Core;
 class Response {
     public static function setHeaders(): void {
         header("Content-Type: application/json; charset=UTF-8");
-        header("Access-Control-Allow-Origin: *");
+        $origin = (require __DIR__ . '/../config.php')['cors_origin'];
+        if ($origin !== '' && $origin === ($_SERVER['HTTP_ORIGIN'] ?? null)) {
+            header('Access-Control-Allow-Origin: ' . $origin);
+            header('Vary: Origin');
+        }
         header("Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS");
         header("Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With, X-Request-Id");
         header("X-Content-Type-Options: nosniff");
         header("X-Frame-Options: SAMEORIGIN");
-        header("X-XSS-Protection: 1; mode=block");
 
         if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
             http_response_code(200);

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { adminFetch, signInAdmin, signOutAdmin } from '../services/session';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   LayoutDashboard,
@@ -131,6 +132,8 @@ const DEPARTMENTS: { key: TicketDepartment; label: string }[] = [
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToHome }) => {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+  const [adminEmail, setAdminEmail] = useState('');
+  const [loginPending, setLoginPending] = useState(false);
   const [password, setPassword] = useState<string>('');
   const [loginError, setLoginError] = useState<string>('');
 
@@ -220,30 +223,34 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToHome }) 
 
   // Settings Save Status
   const [settingsSuccess, setSettingsSuccess] = useState(false);
+  const [settingsError, setSettingsError] = useState('');
   const [copySuccess, setCopySuccess] = useState<string | null>(null);
 
-  // Check stored auth
   useEffect(() => {
-    const savedAuth = localStorage.getItem('signalux_admin_token');
-    if (savedAuth === 'authenticated') {
-      setIsAuthenticated(true);
-    }
+    localStorage.removeItem('signalux_admin_token');
+    const expire = () => setIsAuthenticated(false);
+    window.addEventListener('signalux-admin-session-ended', expire);
+    return () => { window.removeEventListener('signalux-admin-session-ended', expire); };
   }, []);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (password === 'admin123' || password === 'signalux2026' || password === 'SignaluxSuperAdmin2026!') {
-      localStorage.setItem('signalux_admin_token', 'authenticated');
+    setLoginPending(true);
+    setLoginError('');
+    try {
+      await signInAdmin(adminEmail.trim(), password);
       setIsAuthenticated(true);
-      setLoginError('');
-    } else {
-      setLoginError('رمز عبور وارد شده اشتباه است.');
+    } catch (error) {
+      setLoginError(error instanceof Error ? error.message : "خطا در ورود به پنل.");
+    } finally {
+      setPassword('');
+      setLoginPending(false);
     }
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('signalux_admin_token');
     setIsAuthenticated(false);
+    void signOutAdmin().catch(() => {});
   };
 
   const loadData = async () => {
@@ -261,15 +268,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToHome }) 
         settingsRes,
         smsLogsData
       ] = await Promise.all([
-        fetch('/api/v1/admin/stats').then(r => r.json()),
-        fetch('/api/v1/admin/leads').then(r => r.json()),
+        adminFetch('/api/v1/admin/stats').then(r => r.json()),
+        adminFetch('/api/v1/admin/leads').then(r => r.json()),
         fetchAdminTickets(),
         fetch('/api/v1/public/services').then(r => r.json()),
         fetch('/api/v1/public/projects').then(r => r.json()),
         fetch('/api/v1/public/testimonials').then(r => r.json()),
         fetch('/api/v1/public/certificates').then(r => r.json()),
         fetch('/api/v1/public/faqs').then(r => r.json()),
-        fetch('/api/v1/public/settings').then(r => r.json()),
+        adminFetch('/api/v1/admin/settings').then(r => r.json()),
         fetchSmsLogs()
       ]);
 
@@ -306,7 +313,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToHome }) 
   // Lead handlers
   const handleUpdateLeadStatus = async (id: string, status: Lead['status']) => {
     try {
-      const res = await fetch(`/api/v1/admin/leads/${id}/status`, {
+      const res = await adminFetch(`/api/v1/admin/leads/${id}/status`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status })
@@ -323,7 +330,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToHome }) 
   const handleDeleteLead = async (id: string) => {
     if (!window.confirm('آیا از حذف این لید اطمینان دارید؟')) return;
     try {
-      const res = await fetch(`/api/v1/admin/leads/${id}`, { method: 'DELETE' });
+      const res = await adminFetch(`/api/v1/admin/leads/${id}`, { method: 'DELETE' });
       const json = await res.json();
       if (json.success) {
         setLeads(prev => prev.filter(l => l.id !== id));
@@ -393,21 +400,26 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToHome }) 
   const handleSaveSettings = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!siteSettings) return;
+    setSettingsError('');
+    setSettingsSuccess(false);
 
     try {
-      const res = await fetch('/api/v1/admin/settings', {
+      const res = await adminFetch('/api/v1/admin/settings', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(siteSettings)
       });
       const json = await res.json();
-      if (json.success || json.data) {
-        applyTypographyToDocument(siteSettings);
+      if (res.ok && json.success) {
+        setSiteSettings(json.data);
+        applyTypographyToDocument(json.data);
         setSettingsSuccess(true);
         setTimeout(() => setSettingsSuccess(false), 3000);
+      } else {
+        setSettingsError(json.error?.message || 'تنظیمات ذخیره نشد.');
       }
     } catch (err) {
-      console.error('Error saving settings', err);
+      setSettingsError('تنظیمات ذخیره نشد. دوباره تلاش کنید.');
     }
   };
 
@@ -511,7 +523,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToHome }) 
     };
 
     try {
-      const res = await fetch(url, {
+      const res = await adminFetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(serviceData)
@@ -530,7 +542,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToHome }) 
   const handleDeleteService = async (id: string) => {
     if (!window.confirm('آیا از حذف این خدمت اطمینان دارید؟')) return;
     try {
-      const res = await fetch(`/api/v1/admin/services/${id}`, { method: 'DELETE' });
+      const res = await adminFetch(`/api/v1/admin/services/${id}`, { method: 'DELETE' });
       const json = await res.json();
       if (json.success) {
         setServices(prev => prev.filter(s => s.id !== id));
@@ -564,7 +576,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToHome }) 
     };
 
     try {
-      const res = await fetch(url, {
+      const res = await adminFetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(projectData)
@@ -583,7 +595,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToHome }) 
   const handleDeleteProject = async (id: string) => {
     if (!window.confirm('آیا از حذف این پروژه اطمینان دارید؟')) return;
     try {
-      const res = await fetch(`/api/v1/admin/projects/${id}`, { method: 'DELETE' });
+      const res = await adminFetch(`/api/v1/admin/projects/${id}`, { method: 'DELETE' });
       const json = await res.json();
       if (json.success) {
         setProjects(prev => prev.filter(p => p.id !== id));
@@ -603,7 +615,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToHome }) 
     const method = isNew ? 'POST' : 'PUT';
 
     try {
-      const res = await fetch(url, {
+      const res = await adminFetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(editingTestimonial)
@@ -622,7 +634,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToHome }) 
   const handleDeleteTestimonial = async (id: string) => {
     if (!window.confirm('آیا از حذف این نظر اطمینان دارید؟')) return;
     try {
-      const res = await fetch(`/api/v1/admin/testimonials/${id}`, { method: 'DELETE' });
+      const res = await adminFetch(`/api/v1/admin/testimonials/${id}`, { method: 'DELETE' });
       const json = await res.json();
       if (json.success) {
         setTestimonials(prev => prev.filter(t => t.id !== id));
@@ -642,7 +654,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToHome }) 
     const method = isNew ? 'POST' : 'PUT';
 
     try {
-      const res = await fetch(url, {
+      const res = await adminFetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(editingCertificate)
@@ -661,7 +673,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToHome }) 
   const handleDeleteCertificate = async (id: string) => {
     if (!window.confirm('آیا از حذف این گواهینامه اطمینان دارید؟')) return;
     try {
-      const res = await fetch(`/api/v1/admin/certificates/${id}`, { method: 'DELETE' });
+      const res = await adminFetch(`/api/v1/admin/certificates/${id}`, { method: 'DELETE' });
       const json = await res.json();
       if (json.success) {
         setCertificates(prev => prev.filter(c => c.id !== id));
@@ -681,7 +693,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToHome }) 
     const method = isNew ? 'POST' : 'PUT';
 
     try {
-      const res = await fetch(url, {
+      const res = await adminFetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(editingFaq)
@@ -700,7 +712,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToHome }) 
   const handleDeleteFaq = async (id: string) => {
     if (!window.confirm('آیا از حذف این سوال متداول اطمینان دارید؟')) return;
     try {
-      const res = await fetch(`/api/v1/admin/faqs/${id}`, { method: 'DELETE' });
+      const res = await adminFetch(`/api/v1/admin/faqs/${id}`, { method: 'DELETE' });
       const json = await res.json();
       if (json.success) {
         setFaqs(prev => prev.filter(f => f.id !== id));
@@ -732,6 +744,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToHome }) 
           </div>
 
           <form onSubmit={handleLogin} className="space-y-4">
+            <label className="block text-xs text-slate-700">
+              ایمیل حساب مدیریت
+              <input type="email" required autoComplete="username" dir="ltr" value={adminEmail}
+                onChange={e => setAdminEmail(e.target.value)}
+                className="mt-2 w-full px-4 py-3 border border-slate-300 rounded-xl bg-white" />
+            </label>
             <div>
               <label className="block text-xs font-mono text-slate-700 mb-2">
                 کلمه عبور مدیر ارشد
@@ -739,6 +757,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToHome }) 
               <input
                 type="password"
                 value={password}
+                required autoComplete="current-password"
                 onChange={e => setPassword(e.target.value)}
                 placeholder="••••••••••••"
                 className="w-full bg-slate-50 border border-slate-300 focus:border-blue-600 focus:ring-2 focus:ring-blue-100 rounded-xl px-4 py-3 text-sm text-slate-900 font-mono placeholder:text-slate-400 focus:outline-none transition-colors"
@@ -753,7 +772,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToHome }) 
             )}
 
             <button
-              type="submit"
+              type="submit" disabled={loginPending}
               className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold font-mono py-3 rounded-xl transition-all shadow-md shadow-blue-600/30 cursor-pointer"
             >
               ورود به سامانه
@@ -1563,14 +1582,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToHome }) 
 
                     <div>
                       <label className="block text-xs font-mono text-slate-600 mb-1">کلمه عبور / کلید وب‌سرویس (API Key / Password)</label>
-                      <input
-                        type="password"
-                        dir="ltr"
-                        value={siteSettings?.melipayamakPassword || ''}
-                        onChange={e => setSiteSettings(s => s ? { ...s, melipayamakPassword: e.target.value } : null)}
-                        placeholder="••••••••••••"
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 focus:border-blue-500 focus:outline-none font-mono"
-                      />
+                      <p className="text-xs text-slate-500">رمز سامانه فقط روی سرور تنظیم می‌شود.</p>
                     </div>
 
                     <div>
@@ -1760,12 +1772,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToHome }) 
 
                   <div className="space-y-3">
                     <div>
-                      <label className="block text-xs font-mono text-slate-600 mb-1">GTM Container ID</label>
+                      <label htmlFor="gtmContainerId" className="block text-xs font-mono text-slate-600 mb-1">GTM Container ID</label>
                       <input
+                        id="gtmContainerId"
                         type="text"
                         dir="ltr"
-                        value={siteSettings?.gtmId || ''}
-                        onChange={e => setSiteSettings(s => s ? { ...s, gtmId: e.target.value } : null)}
+                        value={siteSettings?.gtmContainerId || ''}
+                        onChange={e => setSiteSettings(s => s ? { ...s, gtmContainerId: e.target.value.trim() } : null)}
                         placeholder="GTM-XXXXXXX"
                         className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 font-mono focus:border-blue-500 focus:outline-none"
                       />
@@ -1775,7 +1788,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToHome }) 
                       <input
                         type="checkbox"
                         id="gtmEnabled"
-                        checked={siteSettings?.gtmEnabled ?? true}
+                        checked={siteSettings?.gtmEnabled ?? false}
                         onChange={e => setSiteSettings(s => s ? { ...s, gtmEnabled: e.target.checked } : null)}
                         className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
                       />
@@ -1786,42 +1799,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToHome }) 
                   </div>
                 </div>
 
-                {/* 2. GSC */}
                 <div className="p-6 rounded-2xl bg-white border border-slate-200 shadow-sm space-y-4">
-                  <div className="flex items-center gap-2 text-blue-700">
-                    <Search className="w-5 h-5" />
-                    <h3 className="text-sm font-bold font-mono">Google Search Console (GSC)</h3>
-                  </div>
+                  <h3 className="text-sm font-bold font-mono text-blue-700">Google Search Console</h3>
                   <p className="text-xs text-slate-500 leading-relaxed">
-                    کد تایید متاتگ مالکیت سایت در سرچ کنسول (<code className="text-blue-700 bg-blue-50 px-1 rounded">google-site-verification</code>) را اینجا وارد کنید.
+                    برای مالکیت از نوع URL-prefix، مقدار content متاتگ را در متغیر سرور
+                    <code dir="ltr"> GSC_VERIFICATION_CODE </code>
+                    قرار دهید. تأیید مالکیت از نوع Domain با رکورد DNS انجام می‌شود.
                   </p>
-
-                  <div className="space-y-3">
-                    <div>
-                      <label className="block text-xs font-mono text-slate-600 mb-1">Verification Code / Meta Tag</label>
-                      <input
-                        type="text"
-                        dir="ltr"
-                        value={siteSettings?.gscVerificationCode || ''}
-                        onChange={e => setSiteSettings(s => s ? { ...s, gscVerificationCode: e.target.value } : null)}
-                        placeholder="مثال: abc123XYZ456... یا تگ کامل"
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 font-mono focus:border-blue-500 focus:outline-none"
-                      />
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        id="gscEnabled"
-                        checked={siteSettings?.gscEnabled ?? true}
-                        onChange={e => setSiteSettings(s => s ? { ...s, gscEnabled: e.target.checked } : null)}
-                        className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                      />
-                      <label htmlFor="gscEnabled" className="text-xs text-slate-700 cursor-pointer">
-                        تزریق خودکار متاتگ به تگ Head سایت
-                      </label>
-                    </div>
-                  </div>
                 </div>
 
                 {/* 3. Google OAuth */}
@@ -1863,14 +1847,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToHome }) 
                 </div>
               </div>
 
-              {/* Save Button */}
+              {settingsError && <p role="alert" className="text-sm text-red-700">{settingsError}</p>}
+              {settingsSuccess && <p role="status" className="text-sm text-green-700">تنظیمات ذخیره شد.</p>}
               <div className="flex items-center justify-end">
                 <button
                   type="button"
                   onClick={handleSaveSettings}
                   className="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold font-mono text-xs shadow-sm cursor-pointer transition-colors"
                 >
-                  ذخیره تمامی تنظیمات ابزارهای گوگل
+                  ذخیره تنظیمات اتصال گوگل
                 </button>
               </div>
             </div>

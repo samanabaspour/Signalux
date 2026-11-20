@@ -9,7 +9,6 @@ import {
   Share2,
   ThumbsUp,
   Check,
-  BookOpen,
   ChevronLeft,
   Sparkles,
   MessageSquareText,
@@ -23,6 +22,9 @@ import {
   CornerDownLeft
 } from 'lucide-react';
 import { BlogPost, BlogComment } from '../types';
+import { ROUTE_PATHS } from '../utils/router';
+import { applyPageMetadata } from '../utils/pageMetadata';
+import { NotFoundPage } from './NotFoundPage';
 import { fetchPublicBlogPosts, fetchPublicBlogPostBySlug, fetchBlogComments, submitBlogComment } from '../services/apiClient';
 
 interface BlogPostDetailPageProps {
@@ -107,6 +109,17 @@ export const BlogPostDetailPage: React.FC<BlogPostDetailPageProps> = ({
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [initialPost?.id, initialPost?.slug, slugParam]);
 
+  useEffect(() => {
+    if (currentPost) {
+      applyPageMetadata({ title: currentPost.metaTitle || currentPost.title,
+        description: currentPost.metaDescription || currentPost.excerpt,
+        path: ROUTE_PATHS['blog-detail'](currentPost.slug), noIndex: currentPost.noIndex,
+        image: currentPost.ogImage || currentPost.featuredImage });
+    } else if (!loading) {
+      applyPageMetadata({ title: 'مقاله یافت نشد', description: 'مقاله در دسترس نیست.', noIndex: true });
+    }
+  }, [currentPost, loading]);
+
   const handleSubmitComment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentPost) return;
@@ -167,24 +180,12 @@ export const BlogPostDetailPage: React.FC<BlogPostDetailPageProps> = ({
 
   if (!currentPost) {
     return (
-      <div className="min-h-screen bg-[#0B0B0F] text-zinc-100 pt-32 pb-24 flex items-center justify-center">
-        <div className="text-center space-y-6 max-w-md mx-auto px-4">
-          <div className="w-16 h-16 bg-amber-500/10 border border-amber-500/30 rounded-2xl flex items-center justify-center mx-auto text-amber-400">
-            <BookOpen className="w-8 h-8" />
-          </div>
-          <h2 className="text-2xl font-bold text-white">مقاله مورد نظر یافت نشد</h2>
-          <p className="text-sm text-zinc-400 leading-relaxed">
-            ممکن است آدرس مقاله تغییر کرده باشد یا موقتاً در دسترس نباشد.
-          </p>
-          <button
-            onClick={onBack}
-            className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-amber-500 text-slate-950 font-bold text-sm shadow-lg shadow-amber-500/20 hover:bg-amber-400 transition-all cursor-pointer"
-          >
-            <ArrowRight className="w-4 h-4" />
-            <span>مشاهده همه مقالات</span>
-          </button>
-        </div>
-      </div>
+      <NotFoundPage
+        title="مقاله پیدا نشد"
+        description="مقالهٔ درخواستی در دسترس نیست."
+        browseHref={ROUTE_PATHS.blog}
+        browseLabel="مشاهدهٔ مقاله‌ها"
+      />
     );
   }
 

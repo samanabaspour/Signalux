@@ -28,7 +28,7 @@ class PrismaService {
       this.isConnected = true;
       return true;
     } catch (err) {
-      console.warn('PostgreSQL database connection unavailable. Falling back to memory state store.', (err as Error).message);
+      console.warn('MySQL database connection unavailable. Authentication is disabled.');
       this.isConnected = false;
       return false;
     }

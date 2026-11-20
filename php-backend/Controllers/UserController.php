@@ -16,6 +16,7 @@ class UserController {
      * Get Admin Team Users with Role & Permissions
      */
     public static function getAdminUsers(): void {
+        Auth::requirePermission('roles.manage');
         $db = Database::getConnection();
 
         if ($db) {
@@ -38,6 +39,7 @@ class UserController {
      * Create Admin Team User
      */
     public static function createAdminUser(): void {
+        Auth::requirePermission('roles.manage');
         $input = Response::getJsonInput();
 
         $username = trim($input['username'] ?? '');
@@ -86,6 +88,7 @@ class UserController {
      * Update Admin Team User
      */
     public static function updateAdminUser(string $id): void {
+        Auth::requirePermission('roles.manage');
         $input = Response::getJsonInput();
         $db = Database::getConnection();
 
@@ -150,6 +153,7 @@ class UserController {
      * Delete Admin User
      */
     public static function deleteAdminUser(string $id): void {
+        Auth::requirePermission('roles.manage');
         $db = Database::getConnection();
         if ($db) {
             // Prevent deleting master admin
