@@ -1,108 +1,105 @@
-import { Router, Request, Response } from 'express';
+import { Router } from 'express';
 import { store } from '../store';
+import { authenticateJwt, AuthenticatedRequest, requirePermissions } from '../backend/common/guards';
+import { AppError } from '../backend/common/types';
+import type { TicketDepartment, TicketPriority, TicketStatus } from '../../src/types';
+
+const departments: TicketDepartment[] = ['technical', 'sales', 'finance', 'seo_design', 'general'];
+const priorities: TicketPriority[] = ['low', 'medium', 'high', 'urgent'];
+const statuses: TicketStatus[] = ['new', 'open', 'in_progress', 'answered', 'closed'];
+
+function messageText(value: unknown, maxLength: number): string {
+  if (typeof value !== 'string' || !value.trim() || value.length > maxLength) {
+    throw new AppError('عنوان یا متن درخواست معتبر نیست.', 400, 'INVALID_TICKET_TEXT');
+  }
+  return value.trim();
+}
+
+function findTicket(id: string, userId?: string) {
+  const ticket = store.getTicketById(id);
+  if (!ticket || (userId !== undefined && ticket.userId !== userId)) {
+    throw new AppError('تیکت یافت نشد.', 404, 'TICKET_NOT_FOUND');
+  }
+  return ticket;
+}
 
 const router = Router();
+router.use(authenticateJwt);
 
-// GET /api/v1/tickets?phone=...
-router.get('/', (req: Request, res: Response) => {
-  const { phone } = req.query;
-  const tickets = store.getTickets(typeof phone === 'string' ? phone : undefined);
-  res.json({
-    success: true,
-    data: tickets
+router.get('/', (req: AuthenticatedRequest, res) => {
+  res.json({ success: true, data: store.getTickets().filter(ticket => ticket.userId === req.user!.id) });
+});
+
+router.get('/:id', (req: AuthenticatedRequest, res) => {
+  res.json({ success: true, data: findTicket(req.params.id, req.user!.id) });
+});
+
+router.post('/', (req: AuthenticatedRequest, res) => {
+  const { department = 'technical', priority = 'medium', subject, message } = req.body || {};
+  if (!departments.includes(department) || !priorities.includes(priority)) {
+    throw new AppError('بخش یا اولویت نامعتبر است.', 400, 'INVALID_TICKET');
+  }
+  const user = req.user!;
+  const ticket = store.createTicket({
+    userId: user.id,
+    userName: [user.firstName, user.lastName].filter(Boolean).join(' '),
+    userPhone: user.phone || '',
+    userEmail: user.email,
+    department, priority,
+    subject: messageText(subject, 200),
+    message: messageText(message, 5000),
   });
+  res.status(201).json({ success: true, data: ticket });
 });
 
-// GET /api/v1/tickets/:id
-router.get('/:id', (req: Request, res: Response) => {
-  const ticket = store.getTicketById(req.params.id);
-  if (!ticket) {
-    return res.status(404).json({ success: false, message: 'تیکت یافت نشد.' });
-  }
-  res.json({ success: true, data: ticket });
+router.post('/:id/messages', (req: AuthenticatedRequest, res) => {
+  const user = req.user!;
+  const ticket = findTicket(req.params.id, user.id);
+  const updated = store.replyTicket(ticket.id, {
+    senderType: 'user',
+    senderName: [user.firstName, user.lastName].filter(Boolean).join(' '),
+    message: messageText(req.body?.message, 5000),
+  });
+  res.json({ success: true, data: updated });
 });
 
-// POST /api/v1/tickets
-router.post('/', (req: Request, res: Response) => {
-  const { userName, userPhone, userEmail, department, priority, subject, message, attachments } = req.body || {};
+export const adminTicketsRouter = Router();
+adminTicketsRouter.use(authenticateJwt, requirePermissions('tickets.manage'));
 
-  if (!userName || !userPhone || !subject || !message) {
-    return res.status(400).json({
-      success: false,
-      message: 'نام، شماره همراه، موضوع و متن تیکت الزامی است.'
-    });
+adminTicketsRouter.get('/', (_req, res) => {
+  res.json({ success: true, data: store.getTickets() });
+});
+
+adminTicketsRouter.post('/:id/reply', (req: AuthenticatedRequest, res) => {
+  const ticket = findTicket(req.params.id);
+  const message = messageText(req.body?.message, 5000);
+  const status = req.body?.newStatus;
+  if (status !== undefined && !statuses.includes(status)) {
+    throw new AppError('وضعیت تیکت نامعتبر است.', 400, 'INVALID_TICKET_STATUS');
   }
-
-  const newTicket = store.createTicket({
-    userName,
-    userPhone,
-    userEmail: userEmail || '',
-    department: department || 'technical',
-    priority: priority || 'medium',
-    subject,
+  const user = req.user!;
+  const updated = store.replyTicket(ticket.id, {
+    senderType: 'admin',
+    senderName: [user.firstName, user.lastName].filter(Boolean).join(' '),
     message,
-    attachments: Array.isArray(attachments) ? attachments : []
   });
-
-  res.status(201).json({
-    success: true,
-    message: 'تیکت شما با موفقیت ثبت شد و به زودی توسط کارشناسان بررسی می‌شود.',
-    data: newTicket
-  });
+  if (status) store.updateTicketStatus(ticket.id, status);
+  res.json({ success: true, data: updated });
 });
 
-// POST /api/v1/tickets/:id/messages
-router.post('/:id/messages', (req: Request, res: Response) => {
-  const { senderName, senderType, message, attachments } = req.body || {};
-
-  if (!message || typeof message !== 'string' || !message.trim()) {
-    return res.status(400).json({ success: false, message: 'متن پاسخ الزامی است.' });
+adminTicketsRouter.patch('/:id/status', (req, res) => {
+  const ticket = findTicket(req.params.id);
+  const status = req.body?.status;
+  if (!statuses.includes(status)) {
+    throw new AppError('وضعیت تیکت نامعتبر است.', 400, 'INVALID_TICKET_STATUS');
   }
-
-  const updatedTicket = store.replyTicket(req.params.id, {
-    senderType: senderType === 'admin' ? 'admin' : 'user',
-    senderName: senderName || 'کاربر',
-    message: message.trim(),
-    attachments: Array.isArray(attachments) ? attachments : []
-  });
-
-  if (!updatedTicket) {
-    return res.status(404).json({ success: false, message: 'تیکت یافت نشد.' });
-  }
-
-  res.json({
-    success: true,
-    message: 'پاسخ با موفقیت ارسال شد.',
-    data: updatedTicket
-  });
+  res.json({ success: true, data: store.updateTicketStatus(ticket.id, status) });
 });
 
-// PATCH /api/v1/tickets/:id/status
-router.patch('/:id/status', (req: Request, res: Response) => {
-  const { status } = req.body || {};
-  if (!status) {
-    return res.status(400).json({ success: false, message: 'وضعیت جدید الزامی است.' });
-  }
-
-  const updatedTicket = store.updateTicketStatus(req.params.id, status);
-  if (!updatedTicket) {
-    return res.status(404).json({ success: false, message: 'تیکت یافت نشد.' });
-  }
-
-  res.json({
-    success: true,
-    message: 'وضعیت تیکت بروزرسانی شد.',
-    data: updatedTicket
-  });
-});
-
-// DELETE /api/v1/tickets/:id
-router.delete('/:id', (req: Request, res: Response) => {
-  const success = store.deleteTicket(req.params.id);
-  if (!success) {
-    return res.status(404).json({ success: false, message: 'تیکت یافت نشد.' });
-  }
-  res.json({ success: true, message: 'تیکت حذف شد.' });
+adminTicketsRouter.delete('/:id', requirePermissions('tickets.delete'), (req, res) => {
+  const ticket = findTicket(req.params.id);
+  store.deleteTicket(ticket.id);
+  res.json({ success: true });
 });
 
 export default router;

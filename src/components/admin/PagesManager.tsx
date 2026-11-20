@@ -466,7 +466,7 @@ export const PagesManager: React.FC = () => {
                         <input
                           type="text"
                           dir="ltr"
-                          value={selectedPage.contactDetails?.telegramId || '@Signalux_Studio'}
+                          value={selectedPage.contactDetails?.telegramId || '@samanabaspour'}
                           onChange={e => handleUpdateContactDetail('telegramId', e.target.value)}
                           className="w-full bg-[#120e1a] border border-white/10 rounded-xl px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-amber-400"
                         />
@@ -476,8 +476,8 @@ export const PagesManager: React.FC = () => {
                         <input
                           type="url"
                           dir="ltr"
-                          placeholder="https://t.me/Signalux_Studio"
-                          value={selectedPage.contactDetails?.telegramLink || 'https://t.me/Signalux_Studio'}
+                          placeholder="https://t.me/samanabaspour"
+                          value={selectedPage.contactDetails?.telegramLink || 'https://t.me/samanabaspour'}
                           onChange={e => handleUpdateContactDetail('telegramLink', e.target.value)}
                           className="w-full bg-[#120e1a] border border-white/10 rounded-xl px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-amber-400"
                         />
@@ -487,8 +487,8 @@ export const PagesManager: React.FC = () => {
                         <input
                           type="url"
                           dir="ltr"
-                          placeholder="https://wa.me/989195466400"
-                          value={selectedPage.contactDetails?.whatsappLink || 'https://wa.me/989195466400'}
+                          placeholder="https://wa.me/989352997272"
+                          value={selectedPage.contactDetails?.whatsappLink || 'https://wa.me/989352997272'}
                           onChange={e => handleUpdateContactDetail('whatsappLink', e.target.value)}
                           className="w-full bg-[#120e1a] border border-white/10 rounded-xl px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-amber-400"
                         />

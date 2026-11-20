@@ -22,6 +22,10 @@ import {
 } from 'lucide-react';
 import { PortfolioProject } from '../types';
 import { PORTFOLIO_PROJECTS } from '../data';
+import { fetchProjectById } from '../services/apiClient';
+import { ROUTE_PATHS } from '../utils/router';
+import { applyPageMetadata } from '../utils/pageMetadata';
+import { NotFoundPage } from './NotFoundPage';
 
 interface ProjectDetailPageProps {
   project?: PortfolioProject | null;
@@ -38,7 +42,25 @@ export const ProjectDetailPage: React.FC<ProjectDetailPageProps> = ({
   onSelectProject,
   onOpenConsultation
 }) => {
-  const resolvedProject = initialProject || (projectId ? PORTFOLIO_PROJECTS.find(p => p.id === projectId) : null);
+  const [resolvedProject, setResolvedProject] = useState(initialProject || null);
+  const [loading, setLoading] = useState(!initialProject && Boolean(projectId));
+  useEffect(() => {
+    if (!projectId) return;
+    let active = true;
+    fetchProjectById(projectId).then(project => {
+      if (active) { setResolvedProject(project); setLoading(false); }
+    });
+    return () => { active = false; };
+  }, [projectId]);
+
+  useEffect(() => {
+    if (resolvedProject) {
+      applyPageMetadata({ title: resolvedProject.title, description: resolvedProject.summary,
+        path: ROUTE_PATHS['project-detail'](resolvedProject.slug || resolvedProject.id), image: resolvedProject.thumbnail });
+    } else if (!loading) {
+      applyPageMetadata({ title: 'پروژه یافت نشد', description: 'پروژه در دسترس نیست.', noIndex: true });
+    }
+  }, [resolvedProject, loading]);
   const [activeImageIdx, setActiveImageIdx] = useState(0);
   const [copiedLink, setCopiedLink] = useState(false);
 
@@ -46,26 +68,16 @@ export const ProjectDetailPage: React.FC<ProjectDetailPageProps> = ({
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [projectId, initialProject?.id]);
 
+  if (loading) return <p role="status" className="px-6 py-36 text-center">در حال بارگیری پروژه…</p>;
+
   if (!resolvedProject) {
     return (
-      <div className="min-h-screen bg-[#070609] text-gray-100 pt-32 pb-24 flex items-center justify-center">
-        <div className="text-center space-y-6 max-w-md mx-auto px-4">
-          <div className="w-16 h-16 bg-amber-500/10 border border-amber-500/30 rounded-2xl flex items-center justify-center mx-auto text-amber-400">
-            <Layers className="w-8 h-8" />
-          </div>
-          <h2 className="text-2xl font-bold text-white">پروژه مورد نظر یافت نشد</h2>
-          <p className="text-sm text-zinc-400 leading-relaxed">
-            پروژه درخواستی وجود ندارد یا آدرس آن تغییر کرده است.
-          </p>
-          <button
-            onClick={onBack}
-            className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-amber-500 text-slate-950 font-bold text-sm shadow-lg shadow-amber-500/20 hover:bg-amber-400 transition-all cursor-pointer"
-          >
-            <ArrowRight className="w-4 h-4" />
-            <span>مشاهده همه نمونه‌کارها</span>
-          </button>
-        </div>
-      </div>
+      <NotFoundPage
+        title="پروژه پیدا نشد"
+        description="پروژهٔ درخواستی در دسترس نیست."
+        browseHref={ROUTE_PATHS['projects-list']}
+        browseLabel="مشاهدهٔ نمونه‌کارها"
+      />
     );
   }
 

@@ -80,6 +80,7 @@ class BlogController {
      * Admin - Get All Blog Posts (including drafts)
      */
     public static function getAllPosts(): void {
+        Auth::requirePermission('blog.manage');
         $db = Database::getConnection();
         if ($db) {
             $stmt = $db->query("SELECT * FROM blog_posts ORDER BY publishedAt DESC");
@@ -96,6 +97,7 @@ class BlogController {
      * Admin - Create Blog Post
      */
     public static function createPost(): void {
+        Auth::requirePermission('blog.manage');
         $input = Response::getJsonInput();
 
         $title = trim($input['title'] ?? '');
@@ -159,6 +161,7 @@ class BlogController {
      * Admin - Update Blog Post
      */
     public static function updatePost(string $id): void {
+        Auth::requirePermission('blog.manage');
         $input = Response::getJsonInput();
         $db = Database::getConnection();
 
@@ -214,6 +217,7 @@ class BlogController {
      * Admin - Delete Blog Post
      */
     public static function deletePost(string $id): void {
+        Auth::requirePermission('blog.manage');
         $db = Database::getConnection();
         if ($db) {
             $stmt = $db->prepare("DELETE FROM blog_posts WHERE id = ?");

@@ -14,6 +14,7 @@ export interface ServiceItem {
 
 export interface PortfolioProject {
   id: string;
+  slug?: string;
   title: string;
   client: string;
   clientRole?: string;

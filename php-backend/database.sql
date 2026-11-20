@@ -16,6 +16,8 @@ CREATE TABLE IF NOT EXISTS `users` (
   `lastName` VARCHAR(100) NOT NULL,
   `email` VARCHAR(191) NOT NULL UNIQUE,
   `phone` VARCHAR(30) DEFAULT NULL,
+  verifiedPhone VARCHAR(30) DEFAULT NULL UNIQUE,
+  googleSubject VARCHAR(191) DEFAULT NULL UNIQUE,
   `avatar` TEXT DEFAULT NULL,
   `passwordHash` VARCHAR(255) NOT NULL,
   `status` ENUM('ACTIVE', 'INACTIVE', 'SUSPENDED') NOT NULL DEFAULT 'ACTIVE',
@@ -105,6 +107,23 @@ CREATE TABLE IF NOT EXISTS `otp_codes` (
   `createdAt` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   KEY `idx_otp_phone` (`phone`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ------------------------------------------------------------
+-- Customer OTP and Google sign-in challenges
+CREATE TABLE IF NOT EXISTS customer_auth_challenges (
+  id VARCHAR(64) NOT NULL PRIMARY KEY,
+  rateKey VARCHAR(100) NOT NULL UNIQUE,
+  kind VARCHAR(8) NOT NULL,
+  subject VARCHAR(191) NOT NULL,
+  proofHash CHAR(64) NOT NULL,
+  ipKey CHAR(64) NOT NULL,
+  attempts INT NOT NULL DEFAULT 0,
+  expiresAt DATETIME(3) NOT NULL,
+  consumedAt DATETIME(3) DEFAULT NULL,
+  createdAt DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  KEY idx_customer_challenge_subject (kind, subject, createdAt),
+  KEY idx_customer_challenge_ip (kind, ipKey, createdAt)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ------------------------------------------------------------
@@ -365,11 +384,11 @@ CREATE TABLE IF NOT EXISTS `site_settings` (
   `heroHeadline` VARCHAR(255) NOT NULL DEFAULT 'خلق تجربه‌های دیجیتال بدون مرز و متناسب با رشد کسب‌وکار شما',
   `heroSubtitle` TEXT NOT NULL,
   `contactEmail` VARCHAR(191) NOT NULL DEFAULT 'info@signalux.ir',
-  `contactPhone` VARCHAR(50) NOT NULL DEFAULT '۰۲۱-۸۸۹۹۰۰۱۱',
+  `contactPhone` VARCHAR(50) NOT NULL DEFAULT '۰۹۳۵۲۹۹۷۲۷۲',
   `contactAddress` TEXT NOT NULL,
   `instagramUrl` VARCHAR(255) DEFAULT 'https://instagram.com/signalux',
   `linkedinUrl` VARCHAR(255) DEFAULT 'https://linkedin.com/company/signalux',
-  `telegramUrl` VARCHAR(255) DEFAULT 'https://t.me/signalux_studio',
+  `telegramUrl` VARCHAR(255) DEFAULT 'https://t.me/samanabaspour',
   `githubUrl` VARCHAR(255) DEFAULT 'https://github.com/signalux',
   
   -- Typography Settings (نوع و اندازه فونت)
@@ -380,7 +399,7 @@ CREATE TABLE IF NOT EXISTS `site_settings` (
   `lineHeightScale` VARCHAR(20) NOT NULL DEFAULT '1.65',
 
   -- Google Integrations
-  `gtmContainerId` VARCHAR(50) DEFAULT 'GTM-XXXXXXX',
+  `gtmContainerId` VARCHAR(50) DEFAULT '',
   `gtmEnabled` TINYINT(1) NOT NULL DEFAULT 0,
   `gscVerificationCode` VARCHAR(255) DEFAULT '',
   `gscVerificationMethod` VARCHAR(30) NOT NULL DEFAULT 'meta_tag',
@@ -437,6 +456,11 @@ INSERT INTO `permissions` (`id`, `key`, `group`, `description`) VALUES
 ('p-tickets-manage', 'tickets.manage', 'تیکت‌ها', 'مدیریت کامل سیستم تیکتینگ'),
 ('p-sms-view', 'sms.view', 'سامانه پیامک', 'مشاهده لاگ‌ها و پترن‌های پیامک'),
 ('p-sms-manage', 'sms.manage', 'سامانه پیامک', 'تنظیمات درگاه ملی پیامک'),
+('p-blog-manage', 'blog.manage', 'بلاگ', 'مدیریت مقاله‌ها'),
+('p-comments-manage', 'comments.manage', 'دیدگاه‌ها', 'بازبینی دیدگاه‌ها'),
+('p-seo-manage', 'seo.manage', 'سئو', 'ویرایش تنظیمات سئو'),
+('p-tickets-manage', 'tickets.manage', 'پشتیبانی', 'مشاهده و پاسخ‌گویی تیکت‌ها'),
+('p-tickets-delete', 'tickets.delete', 'پشتیبانی', 'حذف تیکت‌ها'),
 ('p-settings-view', 'settings.view', 'تنظیمات', 'مشاهده تنظیمات'),
 ('p-settings-manage', 'settings.manage', 'تنظیمات', 'ویرایش تنظیمات اصلی سیستم و ابزارهای گوگل'),
 ('p-media-view', 'media.view', 'رسانه', 'مشاهده کتابخانه فایل‌ها'),
@@ -447,18 +471,11 @@ ON DUPLICATE KEY UPDATE `group` = VALUES(`group`);
 INSERT IGNORE INTO `role_permissions` (`roleId`, `permissionId`)
 SELECT 'r-super-admin', `id` FROM `permissions`;
 
--- 4. Initial Super Admin User (Pass: SignaluxSuperAdmin2026!)
--- Hash generated with password_hash('SignaluxSuperAdmin2026!', PASSWORD_BCRYPT)
-INSERT INTO `users` (`id`, `firstName`, `lastName`, `email`, `phone`, `passwordHash`, `status`, `isEmailVerified`) VALUES
-('u-admin-1', 'مدیر', 'ارشد', 'admin@signalux.ir', '۰۹۱۲۰۰۰۰۰۰۰', '$2y$10$tZ2cI0sC06e/Z2q2g0kP8OT7UjH.z81mH0/x6qI3m0.g4z5h9u1q2', 'ACTIVE', 1)
-ON DUPLICATE KEY UPDATE `email` = VALUES(`email`);
-
-INSERT IGNORE INTO `user_roles` (`userId`, `roleId`) VALUES
-('u-admin-1', 'r-super-admin');
+-- 4. Create the initial administrator via the CLI bootstrap command.
 
 -- 5. Site Settings
 INSERT INTO `site_settings` (`id`, `siteTitle`, `heroHeadline`, `heroSubtitle`, `contactEmail`, `contactPhone`, `contactAddress`, `instagramUrl`, `linkedinUrl`, `telegramUrl`, `githubUrl`, `gtmContainerId`, `gtmEnabled`, `gscVerificationCode`, `melipayamakOtpBodyId`, `melipayamakEnabled`, `googleLoginEnabled`) VALUES
-('s-main-1', 'آژانس دیجیتال سیگنالوکس (Signalux)', 'خلق تجربه‌های دیجیتال بدون مرز و متناسب با رشد کسب‌وکار شما', 'استودیو سیگنالوکس با بهره‌گیری از طراحی مدرن وب، استراتژی سئوی داده‌محور و دیزاین سیستم‌های منحصر‌به‌فرد، برند شما را در فضای دیجیتال ممتاز می‌کند.', 'info@signalux.ir', '۰۲۱-۸۸۹۹۰۰۱۱', 'تهران، خیابان ولیعصر، برج فناوری سیگنال، طبقه ۸', 'https://instagram.com/signalux', 'https://linkedin.com/company/signalux', 'https://t.me/signalux_studio', 'https://github.com/signalux', 'GTM-T9K8LP', 1, 'google-site-verification=abcdef1234567890', 123456, 1, 1)
+('s-main-1', 'آژانس دیجیتال سیگنالوکس (Signalux)', 'خلق تجربه‌های دیجیتال بدون مرز و متناسب با رشد کسب‌وکار شما', 'استودیو سیگنالوکس با بهره‌گیری از طراحی مدرن وب، استراتژی سئوی داده‌محور و دیزاین سیستم‌های منحصر‌به‌فرد، برند شما را در فضای دیجیتال ممتاز می‌کند.', 'info@signalux.ir', '۰۹۳۵۲۹۹۷۲۷۲', 'تهران، خیابان ولیعصر، برج فناوری سیگنال، طبقه ۸', 'https://instagram.com/signalux', 'https://linkedin.com/company/signalux', 'https://t.me/samanabaspour', 'https://github.com/signalux', '', 0, '', 123456, 1, 1)
 ON DUPLICATE KEY UPDATE `siteTitle` = VALUES(`siteTitle`);
 
 -- 6. Initial Services
@@ -575,7 +592,7 @@ CREATE TABLE IF NOT EXISTS `seo_settings` (
   `enableJsonLdSchema` TINYINT(1) NOT NULL DEFAULT 1,
   `organizationName` VARCHAR(150) NOT NULL DEFAULT 'استودیو دیجیتال سیگنالوکس',
   `organizationLogo` TEXT DEFAULT NULL,
-  `organizationPhone` VARCHAR(50) NOT NULL DEFAULT '۰۲۱-۸۸۹۹۰۰۱۱',
+  `organizationPhone` VARCHAR(50) NOT NULL DEFAULT '۰۹۳۵۲۹۹۷۲۷۲',
   `twitterHandle` VARCHAR(50) DEFAULT '@signalux_ir',
   `defaultOgImage` TEXT DEFAULT NULL,
   `redirects` LONGTEXT DEFAULT NULL,
@@ -607,12 +624,7 @@ CREATE TABLE IF NOT EXISTS `speed_settings` (
 -- ------------------------------------------------------------
 
 -- 1. Initial Admin Users with Roles
-INSERT INTO `admin_users` (`id`, `username`, `passwordHash`, `fullName`, `email`, `phone`, `role`, `permissions`, `avatar`, `isActive`) VALUES
-('adm-1', 'admin', '$2y$10$tZ2cI0sC06e/Z2q2g0kP8OT7UjH.z81mH0/x6qI3m0.g4z5h9u1q2', 'مهندس سهیل سلیمانی', 'admin@signalux.ir', '۰۹۱۲۰۰۰۰۰۰۱', 'admin', '["all"]', 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80', 1),
-('adm-2', 'seo_expert', '$2y$10$tZ2cI0sC06e/Z2q2g0kP8OT7UjH.z81mH0/x6qI3m0.g4z5h9u1q2', 'کیانوش رضوانی (متخصص سئو)', 'seo@signalux.ir', '۰۹۱۲۰۰۰۰۰۰۲', 'seo', '["seo","sitemap","robots","blog","google"]', 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=200&q=80', 1),
-('adm-3', 'support_agent', '$2y$10$tZ2cI0sC06e/Z2q2g0kP8OT7UjH.z81mH0/x6qI3m0.g4z5h9u1q2', 'مونا احمدی (کارشناس پشتیبانی)', 'support@signalux.ir', '۰۹۱۲۰۰۰۰۰۰۳', 'support', '["tickets","leads","faqs"]', 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=200&q=80', 1),
-('adm-4', 'content_writer', '$2y$10$tZ2cI0sC06e/Z2q2g0kP8OT7UjH.z81mH0/x6qI3m0.g4z5h9u1q2', 'آرش درخشان (نویسنده ارشد وبلاگ)', 'content@signalux.ir', '۰۹۱۲۰۰۰۰۰۰۴', 'writer', '["blog","media"]', 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=200&q=80', 1)
-ON DUPLICATE KEY UPDATE `fullName` = VALUES(`fullName`);
+-- Legacy admin directory is initially empty.
 
 -- 2. Initial Blog Posts
 INSERT INTO `blog_posts` (`id`, `title`, `slug`, `excerpt`, `content`, `featuredImage`, `category`, `tags`, `author`, `authorRole`, `authorAvatar`, `readingTime`, `status`, `publishedAt`, `viewsCount`, `metaTitle`, `metaDescription`, `focusKeyword`) VALUES
@@ -623,12 +635,12 @@ ON DUPLICATE KEY UPDATE `title` = VALUES(`title`);
 
 -- 3. Initial SEO Suite Settings
 INSERT INTO `seo_settings` (`id`, `siteTitle`, `titleSeparator`, `defaultMetaDescription`, `defaultMetaKeywords`, `canonicalBaseUrl`, `robotsTxt`, `sitemapEnabled`, `sitemapChangefreq`, `sitemapPriority`, `googleVerificationCode`, `enableJsonLdSchema`, `organizationName`, `organizationPhone`, `redirects`, `pageRules`) VALUES
-('default-seo', 'آژانس دیجیتال سیگنالوکس (Signalux)', '|', 'سیگنالوکس؛ آژانس پیشرو در طراحی اختصاصی وب‌سایت، سئو تخصصی و دیجیتال مارکتینگ داده‌محور با تکیه بر متدهای ۲۰۲۶', 'طراحی سایت, سئو سایت, دیجیتال مارکتینگ, آژانس دیجیتال, توسعه وب, سئو تضمینی', 'https://signalux.ir', 'User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /api/v1/admin/\n\nSitemap: https://signalux.ir/sitemap.xml', 1, 'weekly', '0.8', 'google-site-verification=abcdef1234567890', 1, 'استودیو دیجیتال سیگنالوکس', '۰۲۱-۸۸۹۹۰۰۱۱', '[{"id":"red-1","sourcePath":"/old-services","targetPath":"/services","type":301,"isActive":true}]', '[{"id":"page-1","pagePath":"/","pageName":"صفحه اصلی","metaTitle":"آژانس دیجیتال مارکتینگ و طراحی وب سیگنالوکس","metaDescription":"خلق تجربه‌های دیجیتال بدون مرز با استودیو سیگنالوکس، طراحی وب اختصاصی و سئو پایدار","metaKeywords":"طراحی سایت, سئو, مارکتینگ","noIndex":false},{"id":"page-2","pagePath":"/services","pageName":"خدمات تخصصی","metaTitle":"خدمات توسعه وب و مارکتینگ دیجیتال | سیگنالوکس","metaDescription":"ارائه خدمات طراحی وب‌سایت‌های واکنش‌گرا، سئو تخصصی و کمپین‌های تبلیغاتی پربازده","metaKeywords":"خدمات سئو, خدمات طراحی سایت","noIndex":false},{"id":"page-3","pagePath":"/blog","pageName":"وبلاگ و مقالات","metaTitle":"وبلاگ تخصصی طراحی وب و سئو | سیگنالوکس","metaDescription":"جدیدترین مقالات آموزشی، ترندهای ۲۰۲۶ و استراتژی‌های رشد آنلاین در پایگاه دانش سیگنالوکس","metaKeywords":"مقالات سئو, وبلاگ طراحی سایت","noIndex":false}]')
+('default-seo', 'آژانس دیجیتال سیگنالوکس (Signalux)', '|', 'سیگنالوکس؛ آژانس پیشرو در طراحی اختصاصی وب‌سایت، سئو تخصصی و دیجیتال مارکتینگ داده‌محور با تکیه بر متدهای ۲۰۲۶', 'طراحی سایت, سئو سایت, دیجیتال مارکتینگ, آژانس دیجیتال, توسعه وب, سئو تضمینی', 'https://signalux.ir', 'User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /api/v1/admin/\n\nSitemap: https://signalux.ir/sitemap.xml', 1, 'weekly', '0.8', 'google-site-verification=abcdef1234567890', 1, 'استودیو دیجیتال سیگنالوکس', '۰۹۳۵۲۹۹۷۲۷۲', '[{"id":"red-1","sourcePath":"/old-services","targetPath":"/services","type":301,"isActive":true}]', '[{"id":"page-1","pagePath":"/","pageName":"صفحه اصلی","metaTitle":"آژانس دیجیتال مارکتینگ و طراحی وب سیگنالوکس","metaDescription":"خلق تجربه‌های دیجیتال بدون مرز با استودیو سیگنالوکس، طراحی وب اختصاصی و سئو پایدار","metaKeywords":"طراحی سایت, سئو, مارکتینگ","noIndex":false},{"id":"page-2","pagePath":"/services","pageName":"خدمات تخصصی","metaTitle":"خدمات توسعه وب و مارکتینگ دیجیتال | سیگنالوکس","metaDescription":"ارائه خدمات طراحی وب‌سایت‌های واکنش‌گرا، سئو تخصصی و کمپین‌های تبلیغاتی پربازده","metaKeywords":"خدمات سئو, خدمات طراحی سایت","noIndex":false},{"id":"page-3","pagePath":"/blog","pageName":"وبلاگ و مقالات","metaTitle":"وبلاگ تخصصی طراحی وب و سئو | سیگنالوکس","metaDescription":"جدیدترین مقالات آموزشی، ترندهای ۲۰۲۶ و استراتژی‌های رشد آنلاین در پایگاه دانش سیگنالوکس","metaKeywords":"مقالات سئو, وبلاگ طراحی سایت","noIndex":false}]')
 ON DUPLICATE KEY UPDATE `siteTitle` = VALUES(`siteTitle`);
 
 -- 11. Initial Site Settings (Typography & Core Info)
 INSERT INTO `site_settings` (`id`, `siteTitle`, `heroHeadline`, `heroSubtitle`, `contactEmail`, `contactPhone`, `contactAddress`, `instagramUrl`, `linkedinUrl`, `telegramUrl`, `githubUrl`, `fontFamily`, `fontSizeBase`, `fontHeadingScale`, `fontWeightBase`, `lineHeightScale`, `gtmContainerId`, `gtmEnabled`, `gscVerificationCode`, `melipayamakOtpBodyId`, `melipayamakEnabled`, `googleLoginEnabled`) VALUES
-('default-settings', 'آژانس دیجیتال سیگنالوکس (Signalux)', 'خلق تجربه‌های دیجیتال بدون مرز و متناسب با رشد کسب‌وکار شما', 'استودیو سیگنالوکس با بهره‌گیری از طراحی مدرن وب، استراتژی سئوی داده‌محور و دیزاین سیستم‌های منحصر‌به‌فرد، برند شما را در فضای دیجیتال ممتاز می‌کند.', 'info@signalux.ir', '۰۲۱-۸۸۹۹۰۰۱۱', 'تهران، خیابان ولیعصر، برج فناوری سیگنال، طبقه ۸', 'https://instagram.com/signalux', 'https://linkedin.com/company/signalux', 'https://t.me/signalux_studio', 'https://github.com/signalux', 'Shabnam', '16px', '1.25', '400', '1.65', 'GTM-T9K8LP', 1, 'google-site-verification=abcdef1234567890', 123456, 1, 1)
+('default-settings', 'آژانس دیجیتال سیگنالوکس (Signalux)', 'خلق تجربه‌های دیجیتال بدون مرز و متناسب با رشد کسب‌وکار شما', 'استودیو سیگنالوکس با بهره‌گیری از طراحی مدرن وب، استراتژی سئوی داده‌محور و دیزاین سیستم‌های منحصر‌به‌فرد، برند شما را در فضای دیجیتال ممتاز می‌کند.', 'info@signalux.ir', '۰۹۳۵۲۹۹۷۲۷۲', 'تهران، خیابان ولیعصر، برج فناوری سیگنال، طبقه ۸', 'https://instagram.com/signalux', 'https://linkedin.com/company/signalux', 'https://t.me/samanabaspour', 'https://github.com/signalux', 'Shabnam', '16px', '1.25', '400', '1.65', '', 0, '', 123456, 1, 1)
 ON DUPLICATE KEY UPDATE `siteTitle` = VALUES(`siteTitle`);
 
 SET FOREIGN_KEY_CHECKS = 1;

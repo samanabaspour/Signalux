@@ -3,7 +3,6 @@ import { motion } from 'motion/react';
 import { submitToWeb3Forms } from '../services/web3forms';
 import { submitContact, fetchContactDetails, DEFAULT_CONTACT_DETAILS, ContactPageDetails } from '../services/apiClient';
 import {
-  ArrowRight,
   Sparkles,
   PhoneCall,
   Mail,
@@ -41,6 +40,7 @@ export const ContactUsPage: React.FC<ContactUsPageProps> = ({
 
   const [submitted, setSubmitted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
   const [copiedPhone, setCopiedPhone] = useState(false);
   const [copiedEmail, setCopiedEmail] = useState(false);
 
@@ -54,9 +54,10 @@ export const ContactUsPage: React.FC<ContactUsPageProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSubmitError('');
     setIsSubmitting(true);
     try {
-      await Promise.allSettled([
+      const [saved, delivered] = await Promise.allSettled([
         submitContact({
           name: formData.name,
           email: formData.email,
@@ -73,11 +74,14 @@ export const ContactUsPage: React.FC<ContactUsPageProps> = ({
           message: formData.message,
         })
       ]);
+      const accepted = (saved.status === 'fulfilled' && saved.value)
+        || (delivered.status === 'fulfilled' && delivered.value.success);
+      if (!accepted) { setSubmitError('پیام ثبت نشد. لطفاً دوباره تلاش کنید.'); return; }
+      setSubmitted(true);
     } catch (err) {
-      console.error(err);
+      setSubmitError('خطا در ثبت پیام. لطفاً دوباره تلاش کنید.');
     } finally {
       setIsSubmitting(false);
-      setSubmitted(true);
     }
   };
 
@@ -102,14 +106,6 @@ export const ContactUsPage: React.FC<ContactUsPageProps> = ({
 
         {/* Header Navigation */}
         <div className="flex flex-wrap items-center justify-between gap-4 mb-8 pb-6 border-b border-amber-500/15">
-          <button
-            onClick={onBackToHome}
-            className="inline-flex items-center gap-2 px-4 py-2.5 bg-[#121017] border border-amber-500/20 hover:border-amber-400/50 text-white text-xs font-bold uppercase tracking-wider rounded-[5px] transition-all cursor-pointer group"
-          >
-            <ArrowRight className="w-4 h-4 text-amber-400 group-hover:-translate-x-1 transition-transform" />
-            <span>بازگشت به صفحه اصلی</span>
-          </button>
-
           <div className="flex items-center gap-2 text-xs font-mono text-amber-200/50">
             <button onClick={onBackToHome} className="hover:text-white transition-colors flex items-center gap-1">
               <Home className="w-3.5 h-3.5 text-amber-400" />
@@ -149,7 +145,7 @@ export const ContactUsPage: React.FC<ContactUsPageProps> = ({
               <h3 className="text-base font-bold text-white mb-1 uppercase">{details.phoneTitle || 'تماس تلفنی مستقیم'}</h3>
               <p className="text-xs text-amber-200/50 mb-4 font-mono">{details.phoneSubtitle || 'شنبه تا چهارشنبه - ۹:۰۰ الی ۱۸:۰۰'}</p>
               <div className="text-lg font-bold font-mono text-amber-300 ltr text-right mb-4">
-                {details.phoneNumber || '۰۹۱۹ ۵۴۶ ۶۴۰۰'}
+                {details.phoneNumber || DEFAULT_CONTACT_DETAILS.phoneNumber}
               </div>
             </div>
 
@@ -162,7 +158,7 @@ export const ContactUsPage: React.FC<ContactUsPageProps> = ({
                 <span>{copiedPhone ? 'شماره کپی شد' : (details.phoneCopyButtonText || 'کپی شماره تماس')}</span>
               </button>
               <a
-                href={`tel:${details.phoneRaw || '09352997272'}`}
+                href={`tel:${details.phoneRaw || DEFAULT_CONTACT_DETAILS.phoneRaw}`}
                 className="w-full py-2 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 text-[11px] font-mono rounded-[5px] flex items-center justify-center gap-1.5 transition-colors"
               >
                 <PhoneCall className="w-3 h-3" />
@@ -211,13 +207,13 @@ export const ContactUsPage: React.FC<ContactUsPageProps> = ({
               <h3 className="text-base font-bold text-white mb-1 uppercase">{details.messengersTitle || 'پیام‌رسان‌های تلگرام و واتس‌اپ'}</h3>
               <p className="text-xs text-amber-200/50 mb-4 font-mono">{details.messengersSubtitle || 'مشاوره آنلاین فوری و ارسال فایل پروژه‌ها'}</p>
               <div className="text-xs font-mono text-amber-300 mb-4">
-                ID: {details.telegramId || '@Signalux_Studio'}
+                ID: {details.telegramId || DEFAULT_CONTACT_DETAILS.telegramId}
               </div>
             </div>
 
             <div className="space-y-2">
               <a
-                href={details.telegramLink || 'https://t.me/Signalux_Studio'}
+                href={details.telegramLink || DEFAULT_CONTACT_DETAILS.telegramLink}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="w-full py-2.5 bg-[#070609] border border-amber-500/20 hover:border-amber-400/50 text-white text-xs font-mono rounded-[5px] flex items-center justify-center gap-2 transition-all cursor-pointer"
@@ -276,6 +272,7 @@ export const ContactUsPage: React.FC<ContactUsPageProps> = ({
               </motion.div>
             ) : (
               <form onSubmit={handleSubmit} className="space-y-6">
+                  {submitError && <p role="alert" className="text-sm text-red-300">{submitError}</p>}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                   <div>
                     <label className="text-xs font-mono text-amber-100/70 block mb-2">نام و نام خانوادگی / نام مجموعه *</label>

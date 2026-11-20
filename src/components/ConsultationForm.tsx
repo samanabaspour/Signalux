@@ -4,6 +4,7 @@ import confetti from 'canvas-confetti';
 import { ConsultationFormData } from '../types';
 import { submitToWeb3Forms } from '../services/web3forms';
 import { submitConsultation } from '../services/apiClient';
+import { SITE_CONTACT } from '../utils/siteContact';
 import { Send, PhoneCall, MessageCircle, Send as TelegramIcon, CheckCircle2, Sparkles, Clock, ShieldCheck, Copy, Check } from 'lucide-react';
 
 export const ConsultationForm: React.FC = () => {
@@ -18,6 +19,7 @@ export const ConsultationForm: React.FC = () => {
 
   const [submitted, setSubmitted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
   const [copiedPhone, setCopiedPhone] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -27,10 +29,11 @@ export const ConsultationForm: React.FC = () => {
       return;
     }
 
+    setSubmitError('');
     setIsSubmitting(true);
 
     try {
-      await Promise.allSettled([
+      const [saved, delivered] = await Promise.allSettled([
         submitConsultation({
           name: formData.fullName,
           phone: formData.phoneNumber,
@@ -49,21 +52,24 @@ export const ConsultationForm: React.FC = () => {
           message: formData.message || 'بدون توضیحات اضافی',
         })
       ]);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setIsSubmitting(false);
+      const accepted = (saved.status === 'fulfilled' && saved.value)
+        || (delivered.status === 'fulfilled' && delivered.value.success);
+      if (!accepted) { setSubmitError('پیام ثبت نشد. لطفاً دوباره تلاش کنید.'); return; }
       setSubmitted(true);
       confetti({
         particleCount: 80,
         spread: 70,
         origin: { y: 0.6 },
       });
+    } catch (err) {
+      setSubmitError('خطا در ثبت پیام. لطفاً دوباره تلاش کنید.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   const handleCopyPhone = () => {
-    navigator.clipboard.writeText('09352997272');
+    navigator.clipboard.writeText(SITE_CONTACT.phone);
     setCopiedPhone(true);
     setTimeout(() => setCopiedPhone(false), 2000);
   };
@@ -114,7 +120,7 @@ export const ConsultationForm: React.FC = () => {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <a
-                  href="https://wa.me/989352997272?text=سلام،%20درخواست%20مشاوره%20پروژه%20دارم"
+                  href={SITE_CONTACT.whatsappUrl + '?text=' + encodeURIComponent('سلام، درخواست مشاوره پروژه دارم')}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="p-3 bg-[#070609] border border-amber-500/20 text-white hover:border-amber-400 hover:text-amber-300 text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-all rounded-[5px]"
@@ -124,7 +130,7 @@ export const ConsultationForm: React.FC = () => {
                 </a>
 
                 <a
-                  href="https://t.me/signalux_studio"
+                  href={SITE_CONTACT.telegramUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="p-3 bg-[#070609] border border-amber-500/20 text-white hover:border-amber-400 hover:text-amber-300 text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-all rounded-[5px]"
@@ -137,7 +143,7 @@ export const ConsultationForm: React.FC = () => {
               <div className="pt-3 border-t border-amber-500/20 flex items-center justify-between text-xs text-amber-100/80">
                 <div className="flex items-center gap-2">
                   <PhoneCall className="w-4 h-4 text-amber-400" />
-                  <a href="tel:09352997272" className="font-mono hover:text-amber-300 transition-colors">09352997272</a>
+                  <a href={'tel:' + SITE_CONTACT.phone} className="font-mono hover:text-amber-300 transition-colors">{SITE_CONTACT.phone}</a>
                 </div>
                 <button
                   onClick={handleCopyPhone}
@@ -181,6 +187,7 @@ export const ConsultationForm: React.FC = () => {
                 </div>
               ) : (
                 <form onSubmit={handleSubmit} className="space-y-6">
+                  {submitError && <p role="alert" className="text-sm text-red-300">{submitError}</p>}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                     <div>
                       <label className="block text-xs font-semibold text-amber-100/80 mb-2 uppercase tracking-wider">

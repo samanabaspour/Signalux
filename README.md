@@ -1,12 +1,12 @@
 # زیرساخت بک‌اند و هسته اصلی پایگاه‌داده سیگنالوکس (Signalux Backend Core)
 
-پروژه **سیگنالوکس (Signalux)** شامل یک معماری کامل و آماده برای محیط تولید (Production-Ready Backend Core) بر پایه **TypeScript**, **Express / NestJS architecture**, **PostgreSQL** و **Prisma ORM** همراه با سیستم جامع **احراز هویت JWT (با Token Rotation)** و **کنترل دسترسی مبتنی بر نقش و مجوز (RBAC)** است.
+پروژه **سیگنالوکس (Signalux)** شامل هستهٔ بک‌اند بر پایه **TypeScript**, **Express**, **MySQL** و **Prisma ORM** همراه با سیستم جامع **احراز هویت JWT (با Token Rotation)** و **کنترل دسترسی مبتنی بر نقش و مجوز (RBAC)** است.
 
 ---
 
 ## 🚀 ویژگی‌های کلیدی زیرساخت بک‌اند (Part 2 Features)
 
-1. **پایگاه داده PostgreSQL با Prisma ORM:**
+1. **پایگاه داده MySQL با Prisma ORM:**
    - شناسه UUID برای تمامی موجودیت‌های اصلی.
    - مدل‌سازی داده‌ای جامع برای کاربران (`User`), نقش‌ها (`Role`), مجوزها (`Permission`), جلسات کاربری (`RefreshToken`), لاگ‌های نظارتی غیرقابل‌تغییر (`AuditLog`), خدمات (`Service`), پروژه‌ها (`Project`), نظرات مشتریان (`Testimonial`), سوالات متداول (`FAQ`), لیدها (`LeadSubmission`) و تنظیمات سایت (`SiteSettings`).
 
@@ -46,7 +46,7 @@
 ```text
 /
 ├── prisma/
-│   ├── schema.prisma       # ساختار پایگاه‌داده PostgreSQL
+│   ├── schema.prisma       # ساختار پایگاه‌داده MySQL
 │   └── seed.ts             # اسکریپت سیدینگ اولیه نقش‌ها، مجوزها و مدیر ارشد
 ├── server/
 │   ├── backend/
@@ -72,16 +72,16 @@
 NODE_ENV="development"
 PORT=3000
 
-# PostgreSQL Connection
-DATABASE_URL="postgresql://signalux:signalux_pass_2026@localhost:5432/signalux_db?schema=public"
+# MySQL Connection
+DATABASE_URL="mysql://USER:PASSWORD@localhost:3306/signalux"
 
 # JWT Secrets
-JWT_ACCESS_SECRET="signalux_jwt_access_secret_production_2026_super_key"
-JWT_REFRESH_SECRET="signalux_jwt_refresh_secret_production_2026_super_key"
+JWT_ACCESS_SECRET="<independent-random-value-at-least-64-characters>"
+JWT_REFRESH_SECRET="<another-independent-random-value-at-least-64-characters>"
 
 # Initial Super Admin Seed Credentials
 INITIAL_ADMIN_EMAIL="admin@signalux.ir"
-INITIAL_ADMIN_PASSWORD="SignaluxSuperAdmin2026!"
+INITIAL_ADMIN_PASSWORD="<set-a-new-admin-password>"
 INITIAL_ADMIN_FIRST_NAME="مدیر"
 INITIAL_ADMIN_LAST_NAME="ارشد"
 ```
@@ -89,6 +89,23 @@ INITIAL_ADMIN_LAST_NAME="ارشد"
 ---
 
 ## 🚦 نحوه اجرا و تست (Commands)
+
+با `bun install --frozen-lockfile` نصب و با `npm run dev` پیش‌نمایش را در `http://127.0.0.1:3000/` باز کنید.
+ورود به پنل به دیتابیس متصل، دو JWT secret مستقل و حساب مدیرِ ساخته‌شده در DB نیاز دارد.
+برای خروجی تولید `npm run build` و برای Node `npm start` با `NODE_ENV=production` اجرا شود. فقط `dist/client` حاوی فایل‌های عمومی است.
+برای استقرار PHP، [راهنمای DirectAdmin](DIRECTADMIN_DEPLOYMENT.md) را ببینید.
+
+### ورود و ثبت‌نام کاربر
+
+- ورود ایمیل و رمز برای حساب موجود استفاده می‌شود. اولین ورود موفق با گوگل یا پیامک، حساب عادی می‌سازد.
+- برای گوگل، شناسهٔ OAuth نوع Web Application را در `GOOGLE_CLIENT_ID` بگذارید و مبدأ دقیق پیش‌نمایش یا سایت آزمایشی را در Authorized JavaScript origins همان Client ثبت کنید.
+- برای پیامک سریع، `MELIPAYAMAK_USERNAME`، `MELIPAYAMAK_PASSWORD` و `MELIPAYAMAK_PATTERN_ID` را فقط در محیط سرور تنظیم کنید. شناسه باید به پترن تأییدشده با یک پارامتر کد شش‌رقمی اشاره کند.
+- پیش از فعال‌کردن این روش‌ها، schema Prisma را روی دیتابیس آزمایشی همگام و کلاینت را دوباره تولید کنید. برای PHP روی دیتابیس موجود از migration افزایشی مشخص‌شده در راهنمای DirectAdmin استفاده کنید.
+
+### تنظیمات Google در محیط آزمایشی
+
+- شناسه و وضعیت GTM از بخش «گوگل، GTM و سرچ کنسول» در پنل ذخیره می‌شوند. بک‌اند Node به ستون‌های `gtmContainerId` و `gtmEnabled` در `site_settings` نیاز دارد. برای دیتابیس موجود تغییر افزایشی schema را ابتدا روی staging بررسی کنید و پس از همگام‌سازی schema، کلاینت Prisma را دوباره تولید کنید.
+- برای تأیید Search Console به روش متاتگ، مقدار `content` کد مالکیت را با `GSC_VERIFICATION_CODE` تنظیم کنید. برای مالکیت نوع Domain از رکورد DNS استفاده می‌شود.
 
 ### تولید کلاینت Prisma:
 ```bash

@@ -1,125 +1,92 @@
-// Signalux Client-side SPA Router Utility
-// Provides clean, independent URLs for all pages and components
+import manifest from '../../site-pages.json';
 
-export type AppView =
-  | 'home'
-  | 'about'
-  | 'services'
-  | 'web-design'
-  | 'seo'
-  | 'testimonials-media'
-  | 'projects-list'
-  | 'project-detail'
-  | 'contact'
-  | 'blog'
-  | 'blog-detail'
-  | 'account'
-  | 'admin';
+export const staticPages = manifest.pages;
+export type StaticView = keyof typeof staticPages;
+export type AppView = StaticView | 'project-detail' | 'blog-detail' | 'not-found';
 
-export interface RouteState {
+export interface RouteInfo {
   view: AppView;
-  param?: string; // slug or id for blog or project
+  param?: string;
 }
-
-export type RouteInfo = RouteState;
 
 export const ROUTE_PATHS = {
-  home: '/',
-  about: '/about',
-  services: '/services',
-  'web-design': '/services/web-design',
-  seo: '/services/seo',
-  'projects-list': '/projects',
+  home: staticPages.home.path,
+  about: staticPages.about.path,
+  services: staticPages.services.path,
+  'web-design': staticPages['web-design'].path,
+  seo: staticPages.seo.path,
+  'projects-list': staticPages['projects-list'].path,
   'project-detail': (id: string) => `/projects/${encodeURIComponent(id)}`,
-  'testimonials-media': '/testimonials',
-  contact: '/contact',
-  blog: '/blog',
-  'blog-detail': (slugOrId: string) => `/blog/${encodeURIComponent(slugOrId)}`,
-  account: '/account',
-  admin: '/admin',
+  'testimonials-media': staticPages['testimonials-media'].path,
+  contact: staticPages.contact.path,
+  blog: staticPages.blog.path,
+  'blog-detail': (slug: string) => `/blog/${encodeURIComponent(slug)}`,
+  account: staticPages.account.path,
+  admin: staticPages.admin.path,
 };
 
-/**
- * Parses current window.location into view and param
- */
-export function parseCurrentRoute(): RouteState {
-  if (typeof window === 'undefined') {
-    return { view: 'home' };
-  }
+export const publicPages = Object.entries(staticPages)
+  .filter(([view]) => view !== 'admin' && view !== 'account')
+  .map(([, page]) => page);
 
-  const pathname = window.location.pathname.toLowerCase().replace(/\/$/, '') || '/';
-  const hash = window.location.hash.toLowerCase().replace(/^#\/?/, '');
-
-  // Check admin
-  if (pathname === '/admin' || hash === 'admin') {
-    return { view: 'admin' };
-  }
-
-  // Check user account / tickets
-  if (pathname === '/account' || pathname === '/profile' || hash === 'account' || hash === 'profile') {
-    return { view: 'account' };
-  }
-
-  // Check blog detail: /blog/:slug or #blog/:slug
-  const blogDetailMatch = pathname.match(/^\/blog\/(.+)$/) || hash.match(/^blog\/(.+)$/);
-  if (blogDetailMatch && blogDetailMatch[1]) {
-    return { view: 'blog-detail', param: decodeURIComponent(blogDetailMatch[1]) };
-  }
-
-  // Check blog listing
-  if (pathname === '/blog' || pathname === '/articles' || hash === 'blog') {
-    return { view: 'blog' };
-  }
-
-  // Check project detail: /projects/:id or /portfolio/:id
-  const projectDetailMatch = pathname.match(/^\/(?:projects|portfolio)\/(.+)$/) || hash.match(/^(?:projects|portfolio)\/(.+)$/);
-  if (projectDetailMatch && projectDetailMatch[1]) {
-    return { view: 'project-detail', param: decodeURIComponent(projectDetailMatch[1]) };
-  }
-
-  // Check projects listing
-  if (pathname === '/projects' || pathname === '/portfolio' || hash === 'projects' || hash === 'portfolio') {
-    return { view: 'projects-list' };
-  }
-
-  // Check testimonials
-  if (pathname === '/testimonials' || pathname === '/reviews' || hash === 'testimonials') {
-    return { view: 'testimonials-media' };
-  }
-
-  // Check about
-  if (pathname === '/about' || pathname === '/about-us' || hash === 'about') {
-    return { view: 'about' };
-  }
-
-  // Check contact
-  if (pathname === '/contact' || pathname === '/contact-us' || hash === 'contact') {
-    return { view: 'contact' };
-  }
-
-  // Check services
-  if (pathname === '/services/web-design' || hash === 'services/web-design') {
-    return { view: 'web-design' };
-  }
-  if (pathname === '/services/seo' || hash === 'services/seo') {
-    return { view: 'seo' };
-  }
-  if (pathname === '/services' || hash === 'services') {
-    return { view: 'services' };
-  }
-
-  // Fallback to home
-  return { view: 'home' };
+export function isPrivateView(view: AppView): boolean {
+  return view === 'admin' || view === 'account';
 }
 
-/**
- * Navigate to a specific URL path with HTML5 history update
- */
+export function resolveRoute(path: string): RouteInfo {
+  const normalized = path.replace(/\/+$/, '') || '/';
+  const lowercase = normalized.toLowerCase();
+  const canonical = Object.hasOwn(manifest.aliases, lowercase)
+    ? manifest.aliases[lowercase as keyof typeof manifest.aliases]
+    : lowercase;
+  const staticView = (Object.keys(staticPages) as StaticView[]).find(view => staticPages[view].path === canonical);
+  if (staticView) return { view: staticView };
+
+  const match = /^\/(blog|projects|portfolio)\/([^/]+)$/i.exec(normalized);
+  if (!match) return { view: 'not-found' };
+  try {
+    const param = decodeURIComponent(match[2]);
+    if (!param || /[/\\\p{Cc}]/u.test(param) || param === '.' || param === '..') {
+      return { view: 'not-found' };
+    }
+    return { view: match[1].toLowerCase() === 'blog' ? 'blog-detail' : 'project-detail', param };
+  } catch {
+    return { view: 'not-found' };
+  }
+}
+
+export function canonicalPath(route: RouteInfo): string | null {
+  if (route.view === 'not-found') return null;
+  const path = ROUTE_PATHS[route.view];
+  return typeof path === 'function' ? (route.param ? path(route.param) : null) : path;
+}
+
+export function parseCurrentRoute(): RouteInfo {
+  if (typeof window === 'undefined') return { view: 'home' };
+
+  if (window.location.pathname === '/' && window.location.hash) {
+    const legacyRoute = resolveRoute('/' + window.location.hash.replace(/^#\/?/, ''));
+    const path = canonicalPath(legacyRoute);
+    if (path && path !== '/') {
+      window.history.replaceState(null, '', path + window.location.search);
+      return legacyRoute;
+    }
+  }
+  return resolveRoute(window.location.pathname);
+}
+
 export function navigateTo(path: string, options?: { replace?: boolean; scrollToTop?: boolean }) {
   if (typeof window === 'undefined') return;
 
-  const currentPath = window.location.pathname + window.location.search;
-  if (currentPath !== path) {
+  const nextUrl = new URL(path, window.location.href);
+  if (isPrivateView(resolveRoute(window.location.pathname).view) !== isPrivateView(resolveRoute(nextUrl.pathname).view)) {
+    // A new document keeps public analytics scripts out of the account and admin interfaces.
+    if (options?.replace) window.location.replace(path);
+    else window.location.assign(path);
+    return;
+  }
+
+  if (window.location.pathname + window.location.search + window.location.hash !== path) {
     if (options?.replace) {
       window.history.replaceState({}, '', path);
     } else {
@@ -131,6 +98,5 @@ export function navigateTo(path: string, options?: { replace?: boolean; scrollTo
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
-  // Dispatch custom popstate-like event so all subscribers re-evaluate
   window.dispatchEvent(new Event('popstate'));
 }

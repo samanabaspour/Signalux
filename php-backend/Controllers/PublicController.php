@@ -11,30 +11,30 @@ use PDO;
 
 class PublicController {
 
-    public static function getSettings(): void {
+    public static function getSettings(bool $includeSmsSettings = false): void {
         $db = Database::getConnection();
         if ($db) {
-            $stmt = $db->query("SELECT * FROM site_settings LIMIT 1");
+            $stmt = $db->query("SELECT * FROM site_settings ORDER BY (id = 'default-settings') DESC, id ASC LIMIT 1");
             $row = $stmt->fetch();
             if ($row) {
-                Response::json([
+                $settings = [
                     'siteTitle'           => $row['site_title'] ?? $row['siteTitle'] ?? 'آژانس دیجیتال سیگنالوکس (Signalux)',
                     'heroHeadline'        => $row['hero_headline'] ?? $row['heroHeadline'] ?? '',
                     'heroSubtitle'        => $row['hero_subtitle'] ?? $row['heroSubtitle'] ?? '',
                     'contactEmail'        => $row['contact_email'] ?? $row['contactEmail'] ?? 'info@signalux.ir',
-                    'contactPhone'        => $row['contact_phone'] ?? $row['contactPhone'] ?? '۰۲۱-۸۸۹۹۰۰۱۱',
+                    'contactPhone'        => $row['contact_phone'] ?? $row['contactPhone'] ?? '۰۹۳۵۲۹۹۷۲۷۲',
                     'contactAddress'      => $row['contact_address'] ?? $row['contactAddress'] ?? 'تهران، خیابان ولیعصر، برج فناوری سیگنال، طبقه ۸',
                     'instagramUrl'        => $row['instagram_url'] ?? $row['instagramUrl'] ?? 'https://instagram.com/signalux',
                     'linkedinUrl'         => $row['linkedin_url'] ?? $row['linkedinUrl'] ?? 'https://linkedin.com/company/signalux',
-                    'telegramUrl'         => $row['telegram_url'] ?? $row['telegramUrl'] ?? 'https://t.me/signalux_studio',
+                    'telegramUrl'         => $row['telegram_url'] ?? $row['telegramUrl'] ?? 'https://t.me/samanabaspour',
                     'githubUrl'           => $row['github_url'] ?? $row['githubUrl'] ?? 'https://github.com/signalux',
                     'fontFamily'          => $row['font_family'] ?? $row['fontFamily'] ?? 'Shabnam',
                     'fontSizeBase'        => $row['font_size_base'] ?? $row['fontSizeBase'] ?? '16px',
                     'fontHeadingScale'    => $row['font_heading_scale'] ?? $row['fontHeadingScale'] ?? '1.25',
                     'fontWeightBase'      => $row['font_weight_base'] ?? $row['fontWeightBase'] ?? '400',
                     'lineHeightScale'     => $row['line_height_scale'] ?? $row['lineHeightScale'] ?? '1.65',
-                    'gtmContainerId'      => $row['gtm_container_id'] ?? $row['gtmContainerId'] ?? 'GTM-T9K8LP',
-                    'gtmEnabled'          => (bool)($row['gtm_enabled'] ?? $row['gtmEnabled'] ?? true),
+                    'gtmContainerId'      => $row['gtm_container_id'] ?? $row['gtmContainerId'] ?? '',
+                    'gtmEnabled'          => (bool)($row['gtm_enabled'] ?? $row['gtmEnabled'] ?? false),
                     'gscVerificationCode' => $row['gsc_verification_code'] ?? $row['gscVerificationCode'] ?? '',
                     'googleClientId'      => $row['google_client_id'] ?? $row['googleClientId'] ?? '',
                     'googleLoginEnabled'  => (bool)($row['google_login_enabled'] ?? $row['googleLoginEnabled'] ?? true),
@@ -42,7 +42,11 @@ class PublicController {
                     'melipayamakSenderNumber' => $row['melipayamak_sender_number'] ?? $row['melipayamakSenderNumber'] ?? '',
                     'melipayamakOtpBodyId'    => $row['melipayamak_otp_body_id'] ?? $row['melipayamakOtpBodyId'] ?? 123456,
                     'melipayamakEnabled'      => (bool)($row['melipayamak_enabled'] ?? $row['melipayamakEnabled'] ?? true)
-                ]);
+                ];
+                if (!$includeSmsSettings) {
+                    unset($settings['melipayamakUsername'], $settings['melipayamakSenderNumber'], $settings['melipayamakOtpBodyId']);
+                }
+                Response::json($settings);
             }
         }
 
@@ -51,20 +55,20 @@ class PublicController {
             'heroHeadline'        => 'خلق تجربه‌های دیجیتال بدون مرز و متناسب با رشد کسب‌وکار شما',
             'heroSubtitle'        => 'استودیو سیگنالوکس با بهره‌گیری از طراحی مدرن وب، استراتژی سئوی داده‌محور و دیزاین سیستم‌های منحصر‌به‌فرد، برند شما را در فضای دیجیتال ممتاز می‌کند.',
             'contactEmail'        => 'info@signalux.ir',
-            'contactPhone'        => '۰۲۱-۸۸۹۹۰۰۱۱',
+            'contactPhone'        => '۰۹۳۵۲۹۹۷۲۷۲',
             'contactAddress'      => 'تهران، خیابان ولیعصر، برج فناوری سیگنال، طبقه ۸',
             'instagramUrl'        => 'https://instagram.com/signalux',
             'linkedinUrl'         => 'https://linkedin.com/company/signalux',
-            'telegramUrl'         => 'https://t.me/signalux_studio',
+            'telegramUrl'         => 'https://t.me/samanabaspour',
             'githubUrl'           => 'https://github.com/signalux',
             'fontFamily'          => 'Shabnam',
             'fontSizeBase'        => '16px',
             'fontHeadingScale'    => '1.25',
             'fontWeightBase'      => '400',
             'lineHeightScale'     => '1.65',
-            'gtmContainerId'      => 'GTM-T9K8LP',
-            'gtmEnabled'          => true,
-            'gscVerificationCode' => 'google-site-verification=abcdef1234567890',
+            'gtmContainerId'      => '',
+            'gtmEnabled'          => false,
+            'gscVerificationCode' => '',
             'melipayamakOtpBodyId'=> 123456,
             'melipayamakEnabled'  => true,
             'googleLoginEnabled'  => true
@@ -74,7 +78,7 @@ class PublicController {
     public static function getServices(): void {
         $db = Database::getConnection();
         if ($db) {
-            $stmt = $db->query("SELECT * FROM services WHERE is_active = 1 ORDER BY sort_order ASC");
+            $stmt = $db->query("SELECT * FROM services WHERE isPublished = 1 ORDER BY sortOrder ASC");
             $rows = $stmt->fetchAll();
             $data = array_map(function($r) {
                 return [
@@ -82,7 +86,7 @@ class PublicController {
                     'slug'         => $r['slug'],
                     'title'        => $r['title'],
                     'subtitle'     => $r['subtitle'],
-                    'iconName'     => $r['icon_name'],
+                    'iconName'     => $r['iconName'],
                     'description'  => $r['description'],
                     'features'     => json_decode($r['features'] ?? '[]', true) ?: [],
                     'metrics'      => $r['metrics'],
@@ -100,13 +104,13 @@ class PublicController {
         $category = $_GET['category'] ?? null;
 
         if ($db) {
-            $sql = "SELECT * FROM projects WHERE is_published = 1";
+            $sql = "SELECT * FROM projects WHERE isPublished = 1";
             $params = [];
             if (!empty($category) && $category !== 'all') {
                 $sql .= " AND category = ?";
                 $params[] = $category;
             }
-            $sql .= " ORDER BY sort_order ASC, created_at DESC";
+            $sql .= " ORDER BY sortOrder ASC, createdAt DESC";
 
             $stmt = $db->prepare($sql);
             $stmt->execute($params);
@@ -119,14 +123,15 @@ class PublicController {
                     'title'           => $r['title'],
                     'client'          => $r['client'],
                     'category'        => $r['category'],
-                    'categoryLabel'   => $r['category_label'],
+                    'categoryLabel'   => $r['categoryLabel'],
                     'thumbnail'       => $r['thumbnail'],
                     'year'            => $r['year'],
                     'summary'         => $r['summary'],
-                    'fullDescription' => $r['full_description'],
+                    'fullDescription' => $r['fullDescription'],
                     'tags'            => json_decode($r['tags'] ?? '[]', true) ?: [],
-                    'metrics'         => json_decode($r['metrics'] ?? '[]', true) ?: [],
-                    'isFeatured'      => (bool)$r['is_featured']
+                    'impactMetrics'   => json_decode($r['impactMetrics'] ?? '[]', true) ?: [],
+                    'galleryImages'   => json_decode($r['galleryImages'] ?? '[]', true) ?: [],
+                    'isFeatured'      => (bool)$r['isFeatured']
                 ];
             }, $rows);
 
@@ -139,7 +144,7 @@ class PublicController {
     public static function getProjectById(string $id): void {
         $db = Database::getConnection();
         if ($db) {
-            $stmt = $db->prepare("SELECT * FROM projects WHERE (id = ? OR slug = ?) AND is_published = 1 LIMIT 1");
+            $stmt = $db->prepare("SELECT * FROM projects WHERE (id = ? OR slug = ?) AND isPublished = 1 LIMIT 1");
             $stmt->execute([$id, $id]);
             $r = $stmt->fetch();
             if ($r) {
@@ -149,14 +154,15 @@ class PublicController {
                     'title'           => $r['title'],
                     'client'          => $r['client'],
                     'category'        => $r['category'],
-                    'categoryLabel'   => $r['category_label'],
+                    'categoryLabel'   => $r['categoryLabel'],
                     'thumbnail'       => $r['thumbnail'],
                     'year'            => $r['year'],
                     'summary'         => $r['summary'],
-                    'fullDescription' => $r['full_description'],
+                    'fullDescription' => $r['fullDescription'],
                     'tags'            => json_decode($r['tags'] ?? '[]', true) ?: [],
-                    'metrics'         => json_decode($r['metrics'] ?? '[]', true) ?: [],
-                    'isFeatured'      => (bool)$r['is_featured']
+                    'impactMetrics'   => json_decode($r['impactMetrics'] ?? '[]', true) ?: [],
+                    'galleryImages'   => json_decode($r['galleryImages'] ?? '[]', true) ?: [],
+                    'isFeatured'      => (bool)$r['isFeatured']
                 ]);
             }
         }
@@ -167,7 +173,7 @@ class PublicController {
     public static function getTestimonials(): void {
         $db = Database::getConnection();
         if ($db) {
-            $stmt = $db->query("SELECT * FROM testimonials WHERE is_published = 1 ORDER BY sort_order ASC");
+            $stmt = $db->query("SELECT * FROM testimonials WHERE isPublished = 1 ORDER BY sortOrder ASC");
             $rows = $stmt->fetchAll();
             $data = array_map(function($r) {
                 return [
@@ -178,7 +184,7 @@ class PublicController {
                     'avatar'          => $r['avatar'],
                     'quote'           => $r['quote'],
                     'rating'          => (int)$r['rating'],
-                    'resultsAchieved' => $r['results_achieved']
+                    'resultsAchieved' => $r['resultsAchieved']
                 ];
             }, $rows);
             Response::json($data);
@@ -190,16 +196,16 @@ class PublicController {
     public static function getCertificates(): void {
         $db = Database::getConnection();
         if ($db) {
-            $stmt = $db->query("SELECT * FROM certificates WHERE is_published = 1 ORDER BY sort_order ASC");
+            $stmt = $db->query("SELECT * FROM certificates WHERE isPublished = 1 ORDER BY sortOrder ASC");
             $rows = $stmt->fetchAll();
             $data = array_map(function($r) {
                 return [
                     'id'          => $r['id'],
                     'title'       => $r['title'],
                     'issuer'      => $r['issuer'],
-                    'issueDate'   => $r['issue_date'],
+                    'issueDate'   => $r['issueDate'],
                     'image'       => $r['image'],
-                    'badgeType'   => $r['badge_type'],
+                    'badgeType'   => $r['badgeType'],
                     'description' => $r['description'],
                     'skills'      => json_decode($r['skills'] ?? '[]', true) ?: []
                 ];
@@ -213,7 +219,7 @@ class PublicController {
     public static function getFaqs(): void {
         $db = Database::getConnection();
         if ($db) {
-            $stmt = $db->query("SELECT * FROM faqs WHERE is_published = 1 ORDER BY sort_order ASC");
+            $stmt = $db->query("SELECT * FROM faqs WHERE isPublished = 1 ORDER BY sortOrder ASC");
             $rows = $stmt->fetchAll();
             $data = array_map(function($r) {
                 return [
@@ -247,13 +253,14 @@ class PublicController {
         $ua = $_SERVER['HTTP_USER_AGENT'] ?? null;
 
         $db = Database::getConnection();
-        if ($db) {
-            $stmt = $db->prepare("
-                INSERT INTO leads (id, type, name, email, phone, service, budget, message, status, ip_address, user_agent)
-                VALUES (?, 'consultation', ?, ?, ?, ?, ?, ?, 'new', ?, ?)
-            ");
-            $stmt->execute([$id, $name, $email, $phone, $service, $budget, $message, $ip, $ua]);
+        if (!$db) {
+            Response::error('ثبت درخواست موقتاً در دسترس نیست.', 503, 'DATABASE_UNAVAILABLE');
         }
+        $stmt = $db->prepare("
+            INSERT INTO lead_submissions (id, type, name, email, phone, service, budget, message, status, ipAddress, userAgent)
+            VALUES (?, 'consultation', ?, ?, ?, ?, ?, ?, 'new', ?, ?)
+        ");
+        $stmt->execute([$id, $name, $email, $phone, $service, $budget, $message, $ip, $ua]);
 
         Response::json([
             'id'        => $id,
@@ -277,13 +284,14 @@ class PublicController {
         $ua = $_SERVER['HTTP_USER_AGENT'] ?? null;
 
         $db = Database::getConnection();
-        if ($db) {
-            $stmt = $db->prepare("
-                INSERT INTO leads (id, type, name, email, phone, message, status, ip_address, user_agent)
-                VALUES (?, 'contact', ?, ?, ?, ?, 'new', ?, ?)
-            ");
-            $stmt->execute([$id, $name, $email, $phone, $message, $ip, $ua]);
+        if (!$db) {
+            Response::error('ثبت درخواست موقتاً در دسترس نیست.', 503, 'DATABASE_UNAVAILABLE');
         }
+        $stmt = $db->prepare("
+            INSERT INTO lead_submissions (id, type, name, email, phone, message, status, ipAddress, userAgent)
+            VALUES (?, 'contact', ?, ?, ?, ?, 'new', ?, ?)
+        ");
+        $stmt->execute([$id, $name, $email, $phone, $message, $ip, $ua]);
 
         Response::json([
             'id'      => $id,

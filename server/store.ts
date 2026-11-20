@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { SERVICES_DATA, PORTFOLIO_PROJECTS, CERTIFICATES_DATA, TESTIMONIALS_DATA } from '../src/data';
 import {
   ServiceItem,
@@ -391,7 +392,7 @@ const INITIAL_SEO_SETTINGS: SeoGlobalSettings = {
   enableJsonLdSchema: true,
   organizationName: 'استودیو دیجیتال سیگنالوکس',
   organizationLogo: '',
-  organizationPhone: '۰۲۱-۸۸۹۹۰۰۱۱',
+  organizationPhone: '۰۹۳۵۲۹۹۷۲۷۲',
   twitterHandle: '@signalux_ir',
   defaultOgImage: '',
   redirects: [
@@ -440,11 +441,11 @@ const INITIAL_SITE_SETTINGS: SiteSettings = {
   heroHeadline: 'خلق تجربه‌های دیجیتال بدون مرز و متناسب با رشد کسب‌وکار شما',
   heroSubtitle: 'استودیو سیگنالوکس با بهره‌گیری از طراحی مدرن وب، استراتژی سئوی داده‌محور و دیزاین سیستم‌های منحصر‌به‌فرد، برند شما را در فضای دیجیتال ممتاز می‌کند.',
   contactEmail: 'info@signalux.ir',
-  contactPhone: '۰۲۱-۸۸۹۹۰۰۱۱',
+  contactPhone: '۰۹۳۵۲۹۹۷۲۷۲',
   contactAddress: 'تهران، خیابان ولیعصر، برج فناوری سیگنال، طبقه ۸',
   instagramUrl: 'https://instagram.com/signalux',
   linkedinUrl: 'https://linkedin.com/company/signalux',
-  telegramUrl: 'https://t.me/signalux_studio',
+  telegramUrl: 'https://t.me/samanabaspour',
   githubUrl: 'https://github.com/signalux',
   
   // Typography
@@ -454,9 +455,9 @@ const INITIAL_SITE_SETTINGS: SiteSettings = {
   fontWeightBase: '400',
   lineHeightScale: '1.65',
 
-  gtmContainerId: 'GTM-T9K8LP',
-  gtmEnabled: true,
-  gscVerificationCode: 'google-site-verification=abcdef1234567890',
+  gtmContainerId: '',
+  gtmEnabled: false,
+  gscVerificationCode: '',
   googleClientId: '1234567890-signalux.apps.googleusercontent.com',
   googleLoginEnabled: true,
   melipayamakUsername: 'signalux_sms',
@@ -533,7 +534,7 @@ class DataStore {
 
   // Projects
   getProjects(): PortfolioProject[] { return this.projects; }
-  getProjectById(id: string): PortfolioProject | undefined { return this.projects.find(p => p.id === id); }
+  getProjectById(id: string): PortfolioProject | undefined { return this.projects.find(p => p.id === id || p.slug === id); }
   createProject(data: Omit<PortfolioProject, 'id'>): PortfolioProject {
     const newProject: PortfolioProject = { ...data, id: `proj-${Date.now()}` };
     this.projects.unshift(newProject);
@@ -623,7 +624,10 @@ class DataStore {
   // Settings
   getSettings(): SiteSettings { return this.settings; }
   updateSettings(data: Partial<SiteSettings>): SiteSettings {
-    this.settings = { ...this.settings, ...data };
+    const allowed = Object.fromEntries(Object.entries(data).filter(([key]) =>
+      Object.hasOwn(INITIAL_SITE_SETTINGS, key)
+    ));
+    this.settings = { ...this.settings, ...allowed };
     return this.settings;
   }
 
@@ -662,11 +666,14 @@ class DataStore {
     return this.blogPosts;
   }
   getBlogPostBySlug(slug: string): BlogPost | undefined {
-    const post = this.blogPosts.find(p => p.slug === slug || p.id === slug);
+    const post = this.findBlogPost(slug);
     if (post) {
       post.viewsCount = (post.viewsCount || 0) + 1;
     }
     return post;
+  }
+  findBlogPost(slugOrId: string): BlogPost | undefined {
+    return this.blogPosts.find(post => post.slug === slugOrId || post.id === slugOrId);
   }
   getBlogPostById(id: string): BlogPost | undefined {
     return this.blogPosts.find(p => p.id === id);
@@ -797,6 +804,7 @@ class DataStore {
   }
 
   createTicket(payload: {
+    userId: string;
     userName: string;
     userPhone: string;
     userEmail?: string;
@@ -806,10 +814,10 @@ class DataStore {
     message: string;
     attachments?: string[];
   }): TicketItem {
-    const ticketId = `TK-${Math.floor(1000 + Math.random() * 9000)}`;
+    const ticketId = 'TK-' + randomUUID();
     const now = new Date().toISOString();
     const firstMsg: TicketMessage = {
-      id: `msg-${Date.now()}`,
+      id: 'msg-' + randomUUID(),
       ticketId,
       senderType: 'user',
       senderName: payload.userName,
@@ -820,6 +828,7 @@ class DataStore {
 
     const newTicket: TicketItem = {
       id: ticketId,
+      userId: payload.userId,
       userName: payload.userName,
       userPhone: payload.userPhone,
       userEmail: payload.userEmail || '',
@@ -847,7 +856,7 @@ class DataStore {
 
     const now = new Date().toISOString();
     const newMsg: TicketMessage = {
-      id: `msg-${Date.now()}`,
+      id: 'msg-' + randomUUID(),
       ticketId,
       senderType: payload.senderType,
       senderName: payload.senderName,
@@ -961,7 +970,7 @@ class DataStore {
       authorAvatar: payload.authorAvatar,
       content: payload.content,
       createdAt: new Date().toISOString(),
-      status: 'approved', // Auto-approved or pending based on policy; default approved for great interactive demo
+      status: 'pending',
       rating: payload.rating || 5,
       likesCount: 0
     };

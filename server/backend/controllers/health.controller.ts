@@ -10,15 +10,15 @@ export const healthRouter = Router();
 healthRouter.get('/', async (req: Request, res: Response) => {
   const isDbConnected = prismaService.status;
 
-  res.json({
-    success: true,
+  res.status(isDbConnected ? 200 : 503).json({
+    success: isDbConnected,
     data: {
-      status: 'UP',
+      status: isDbConnected ? 'UP' : 'NOT_READY',
       timestamp: new Date().toISOString(),
       environment: process.env.NODE_ENV || 'development',
       uptimeSeconds: Math.floor(process.uptime()),
       database: {
-        status: isDbConnected ? 'CONNECTED' : 'DISCONNECTED_MEMORY_FALLBACK',
+        status: isDbConnected ? 'CONNECTED' : 'DISCONNECTED',
         provider: 'mysql',
       },
       version: '1.0.0',

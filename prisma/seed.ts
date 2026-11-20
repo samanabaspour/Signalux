@@ -43,6 +43,12 @@ const PERMISSIONS_DATA = [
   { key: 'settings.view', group: 'تنظیمات', description: 'مشاهده تنظیمات' },
   { key: 'settings.manage', group: 'تنظیمات', description: 'ویرایش تنظیمات اصلی سیستم' },
 
+  { key: 'blog.manage', group: 'بلاگ', description: 'مدیریت مقاله‌ها' },
+  { key: 'comments.manage', group: 'دیدگاه‌ها', description: 'بازبینی دیدگاه‌ها' },
+  { key: 'seo.manage', group: 'سئو', description: 'ویرایش تنظیمات سئو' },
+  { key: 'tickets.manage', group: 'پشتیبانی', description: 'مشاهده و پاسخ‌گویی تیکت‌ها' },
+  { key: 'tickets.delete', group: 'پشتیبانی', description: 'حذف تیکت‌ها' },
+
   { key: 'media.view', group: 'رسانه', description: 'مشاهده کتابخانه فایل‌ها' },
   { key: 'media.upload', group: 'رسانه', description: 'آپلود فایل‌های جدید' },
 ];
@@ -103,15 +109,15 @@ async function main() {
 
   // 4. Seed Initial Super Admin User
   const adminEmail = (process.env.INITIAL_ADMIN_EMAIL || 'admin@signalux.ir').trim().toLowerCase();
-  const adminPassword = process.env.INITIAL_ADMIN_PASSWORD || 'SignaluxSuperAdmin2026!';
+  const adminPassword = process.env.INITIAL_ADMIN_PASSWORD;
+  if (!adminPassword || adminPassword.length < 16) {
+    throw new Error('Set INITIAL_ADMIN_PASSWORD to a new password of at least 16 characters before seeding.');
+  }
   const passwordHash = await bcrypt.hash(adminPassword, 10);
 
   const adminUser = await prisma.user.upsert({
     where: { email: adminEmail },
-    update: {
-      passwordHash,
-      status: 'ACTIVE',
-    },
+    update: {},
     create: {
       firstName: process.env.INITIAL_ADMIN_FIRST_NAME || 'مدیر',
       lastName: process.env.INITIAL_ADMIN_LAST_NAME || 'ارشد',
@@ -149,11 +155,11 @@ async function main() {
         heroHeadline: 'خلق تجربه‌های دیجیتال بدون مرز',
         heroSubtitle: 'استودیو سیگنالوکس با بهره‌گیری از طراحی مدرن وب و سئو برند شما را ممتاز می‌کند.',
         contactEmail: 'info@signalux.ir',
-        contactPhone: '۰۲۱-۸۸۹۹۰۰۱۱',
+        contactPhone: '۰۹۳۵۲۹۹۷۲۷۲',
         contactAddress: 'تهران، خیابان ولیعصر، برج فناوری سیگنال',
         instagramUrl: 'https://instagram.com/signalux',
         linkedinUrl: 'https://linkedin.com/company/signalux',
-        telegramUrl: 'https://t.me/signalux_studio',
+        telegramUrl: 'https://t.me/samanabaspour',
         githubUrl: 'https://github.com/signalux',
       },
     });

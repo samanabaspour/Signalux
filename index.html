@@ -36,19 +36,6 @@
   </head>
   <body class="bg-[#0B0B0F] text-[#E2E8F0] antialiased selection:bg-[#C026D3]/30 selection:text-white">
     <div id="root"></div>
-    <script>
-      try {
-        if (typeof window !== 'undefined') {
-          let _fetch = window.fetch;
-          Object.defineProperty(window, 'fetch', {
-            get() { return _fetch; },
-            set(v) { _fetch = v; },
-            configurable: true,
-            enumerable: true
-          });
-        }
-      } catch (e) {}
-    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

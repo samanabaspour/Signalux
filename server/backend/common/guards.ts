@@ -29,7 +29,7 @@ export async function authenticateJwt(
       throw new AppError('نوع توکن نامعتبر است.', 401, 'INVALID_TOKEN');
     }
 
-    const currentUser = await authService.getCurrentUser(payload.sub);
+    const currentUser = await authService.getCurrentUser(payload.sub, payload.sessionId);
     req.user = currentUser;
     req.sessionId = payload.sessionId;
 

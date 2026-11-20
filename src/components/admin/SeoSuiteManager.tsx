@@ -312,18 +312,11 @@ export const SeoSuiteManager: React.FC = () => {
                 تأییدیه موتورهای جستجو و Schema.org
               </h3>
 
-              <div>
-                <label className="block text-xs font-semibold text-zinc-300 mb-1.5">
-                  کد تأیید Google Search Console (HTML Tag Content)
-                </label>
-                <input
-                  type="text"
-                  value={seoSettings.googleVerificationCode || ''}
-                  onChange={e => setSeoSettings({ ...seoSettings, googleVerificationCode: e.target.value })}
-                  placeholder="google-site-verification=xxxxxxxxxxxx"
-                  className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-2.5 text-sm text-zinc-100 focus:outline-none focus:border-emerald-500 font-mono"
-                />
-              </div>
+              <p className="text-xs text-zinc-300">
+                برای روش متاتگ Google Search Console از متغیر سرور
+                <code dir="ltr"> GSC_VERIFICATION_CODE </code>
+                استفاده کنید.
+              </p>
 
               <div>
                 <label className="block text-xs font-semibold text-zinc-300 mb-1.5">

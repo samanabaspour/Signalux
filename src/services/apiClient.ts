@@ -1,3 +1,6 @@
+import { adminFetch, customerFetch } from './session';
+import { isPrivateView, resolveRoute, ROUTE_PATHS } from '../utils/router';
+import { SITE_CONTACT } from '../utils/siteContact';
 import {
   ServiceItem,
   PortfolioProject,
@@ -95,7 +98,7 @@ export const DEFAULT_CONTACT_DETAILS: ContactPageDetails = {
   phoneTitle: 'تماس تلفنی مستقیم',
   phoneSubtitle: 'شنبه تا چهارشنبه - ۹:۰۰ الی ۱۸:۰۰',
   phoneNumber: '۰۹۳۵ ۲۹۹ ۷۲۷۲',
-  phoneRaw: '09352997272',
+  phoneRaw: SITE_CONTACT.phone,
   phoneCopyButtonText: 'کپی شماره تماس',
 
   // 2. Email
@@ -107,10 +110,10 @@ export const DEFAULT_CONTACT_DETAILS: ContactPageDetails = {
   // 3. Messengers
   messengersTitle: 'پیام‌رسان‌های تلگرام و واتس‌اپ',
   messengersSubtitle: 'مشاوره آنلاین فوری و ارسال فایل پروژه‌ها',
-  telegramId: '@Signalux_Studio',
-  telegramLink: 'https://t.me/Signalux_Studio',
+  telegramId: SITE_CONTACT.telegramId,
+  telegramLink: SITE_CONTACT.telegramUrl,
   whatsappNumber: '۰۹۳۵ ۲۹۹ ۷۲۷۲',
-  whatsappLink: 'https://wa.me/989352997272',
+  whatsappLink: SITE_CONTACT.whatsappUrl,
   telegramButtonText: 'ارسال پیام در تلگرام',
   whatsappButtonText: 'ارسال پیام در واتس‌اپ',
 
@@ -324,20 +327,20 @@ export async function fetchSettings(): Promise<SiteSettings | null> {
     heroHeadline: 'خلق تجربه‌های دیجیتال بدون مرز و متناسب با رشد کسب‌وکار شما',
     heroSubtitle: 'استودیو سیگنالوکس با بهره‌گیری از طراحی مدرن وب، استراتژی سئوی داده‌محور و دیزاین سیستم‌های منحصر‌به‌فرد، برند شما را در فضای دیجیتال ممتاز می‌کند.',
     contactEmail: 'info@signalux.ir',
-    contactPhone: '۰۹۳۵۲۹۹۷۲۷۲',
+    contactPhone: SITE_CONTACT.phoneDisplay,
     contactAddress: 'تهران، خیابان ولیعصر، برج فناوری سیگنال، طبقه ۸',
     instagramUrl: 'https://instagram.com/signalux',
     linkedinUrl: 'https://linkedin.com/company/signalux',
-    telegramUrl: 'https://t.me/signalux_studio',
+    telegramUrl: SITE_CONTACT.telegramUrl,
     githubUrl: 'https://github.com/signalux',
     fontFamily: 'Shabnam',
     fontSizeBase: '16px',
     fontHeadingScale: '1.25',
     fontWeightBase: '400',
     lineHeightScale: '1.65',
-    gtmContainerId: 'GTM-T9K8LP',
-    gtmEnabled: true,
-    gscVerificationCode: 'google-site-verification=abcdef1234567890',
+    gtmContainerId: '',
+    gtmEnabled: false,
+    gscVerificationCode: '',
     melipayamakOtpBodyId: 123456,
     melipayamakEnabled: true,
     googleLoginEnabled: true
@@ -349,63 +352,39 @@ export async function fetchSettings(): Promise<SiteSettings | null> {
 
 export async function updateSiteSettings(payload: Partial<SiteSettings>): Promise<boolean> {
   try {
-    // Apply changes immediately for zero-lag UI preview
-    applyTypographyToDocument(payload);
-    if (payload.gtmContainerId || payload.gscVerificationCode) {
-      applyHeadIntegrations(payload as SiteSettings);
-    }
-
-    const token = localStorage.getItem('signalux_admin_token') || localStorage.getItem('signalux_user_token');
-    const res = await fetch('/api/v1/admin/settings', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-      },
+    const res = await adminFetch('/api/v1/admin/settings', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     });
     const json = await res.json();
-    return json.success;
+    if (!res.ok || !json.success) return false;
+    applyTypographyToDocument(json.data || payload);
+    return true;
   } catch (err) {
     console.error('Error updating site settings', err);
-    // Still succeeded in local storage
-    return true;
+    return false;
   }
 }
 
 // Helper to inject GTM & GSC dynamically into DOM
 export function applyHeadIntegrations(settings: SiteSettings) {
   if (typeof document === 'undefined') return;
+  const { view } = resolveRoute(window.location.pathname);
+  if (isPrivateView(view) || view === 'not-found') return;
 
-  // 1. Google Search Console Verification Meta Tag
-  if (settings.gscVerificationCode) {
-    let meta = document.querySelector('meta[name="google-site-verification"]');
-    if (!meta) {
-      meta = document.createElement('meta');
-      meta.setAttribute('name', 'google-site-verification');
-      document.head.appendChild(meta);
-    }
-    // Extract content if user pasted entire <meta ... content="XYZ" />
-    let cleanCode = settings.gscVerificationCode;
-    const match = cleanCode.match(/content=["']([^"']+)["']/);
-    if (match) {
-      cleanCode = match[1];
-    }
-    meta.setAttribute('content', cleanCode.trim());
-  }
-
-  // 2. Google Tag Manager Injection
-  if (settings.gtmContainerId && settings.gtmEnabled !== false) {
-    const cleanGtmId = settings.gtmContainerId.trim();
-    if (!document.getElementById('gtm-script-tag') && cleanGtmId.startsWith('GTM-')) {
-      const gtmScript = document.createElement('script');
-      gtmScript.id = 'gtm-script-tag';
-      gtmScript.innerHTML = `(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
-      new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
-      j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
-      'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
-      })(window,document,'script','dataLayer','${cleanGtmId}');`;
-      document.head.appendChild(gtmScript);
+  // Search Console verification is rendered by the web server.
+  if (settings.gtmContainerId && settings.gtmEnabled === true) {
+    const id = settings.gtmContainerId.trim();
+    if (/^GTM-[A-Z0-9]{1,20}$/.test(id) && !document.getElementById('gtm-script-tag')) {
+      const gtmWindow = window as Window & { dataLayer?: Record<string, unknown>[] };
+      gtmWindow.dataLayer ??= [];
+      gtmWindow.dataLayer.push({ 'gtm.start': Date.now(), event: 'gtm.js' });
+      const script = document.createElement('script');
+      script.id = 'gtm-script-tag';
+      script.async = true;
+      script.src = 'https://www.googletagmanager.com/gtm.js?id=' + encodeURIComponent(id);
+      document.head.appendChild(script);
     }
   }
 }
@@ -441,12 +420,12 @@ export async function fetchTestimonials(): Promise<Testimonial[]> {
 export async function saveTestimonialsList(list: Testimonial[]): Promise<boolean> {
   try {
     localStorage.setItem('signalux_testimonials', JSON.stringify(list));
-    const token = localStorage.getItem('signalux_admin_token');
-    await fetch('/api/v1/admin/testimonials/batch', {
+
+    await adminFetch('/api/v1/admin/testimonials/batch', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+
       },
       body: JSON.stringify(list)
     });
@@ -533,12 +512,12 @@ export async function fetchPodcasts(): Promise<PodcastEpisode[]> {
 export async function savePodcasts(podcasts: PodcastEpisode[]): Promise<boolean> {
   try {
     localStorage.setItem('signalux_podcasts', JSON.stringify(podcasts));
-    const token = localStorage.getItem('signalux_admin_token');
-    await fetch('/api/v1/admin/podcasts/batch', {
+
+    await adminFetch('/api/v1/admin/podcasts/batch', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+
       },
       body: JSON.stringify(podcasts)
     });
@@ -625,12 +604,12 @@ export async function fetchVideoTestimonials(): Promise<VideoTestimonial[]> {
 export async function saveVideoTestimonials(videos: VideoTestimonial[]): Promise<boolean> {
   try {
     localStorage.setItem('signalux_video_testimonials', JSON.stringify(videos));
-    const token = localStorage.getItem('signalux_admin_token');
-    await fetch('/api/v1/admin/video-testimonials/batch', {
+
+    await adminFetch('/api/v1/admin/video-testimonials/batch', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+
       },
       body: JSON.stringify(videos)
     });
@@ -785,78 +764,9 @@ export async function submitContact(payload: {
 // -------------------------------------------------------------
 // Authentication (Phone OTP, Google OAuth, Password)
 // -------------------------------------------------------------
-export async function sendPhoneOtp(phone: string): Promise<{ success: boolean; message: string; mockCode?: string }> {
-  try {
-    const res = await fetch('/api/v1/auth/otp/send', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ phone })
-    });
-    const json = await res.json();
-    return {
-      success: json.success,
-      message: json.message || (json.success ? 'کد اعتبارسنجی ارسال شد.' : 'خطا در ارسال کد.'),
-      mockCode: json.data?.mockCode
-    };
-  } catch (err) {
-    return { success: false, message: 'خطا در برقراری ارتباط با سرور پیامک.' };
-  }
-}
-
-export async function verifyPhoneOtp(payload: {
-  phone: string;
-  code: string;
-  firstName?: string;
-  lastName?: string;
-}): Promise<{ success: boolean; user?: AppUser; token?: string; message?: string }> {
-  try {
-    const res = await fetch('/api/v1/auth/otp/verify', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-    const json = await res.json();
-    if (json.success && json.data) {
-      if (json.data.token) {
-        localStorage.setItem('signalux_user_token', json.data.token);
-      }
-      if (json.data.user) {
-        localStorage.setItem('signalux_user_profile', JSON.stringify(json.data.user));
-      }
-      return { success: true, user: json.data.user, token: json.data.token, message: json.message };
-    }
-    return { success: false, message: json.error?.message || json.message || 'کد وارد شده صحیح نمی‌باشد.' };
-  } catch (err) {
-    return { success: false, message: 'خطا در احراز هویت.' };
-  }
-}
-
-export async function loginWithGoogleCredential(credentialToken: string, userDetails?: { name?: string; email?: string; picture?: string }): Promise<{ success: boolean; user?: AppUser; token?: string; message?: string }> {
-  try {
-    const res = await fetch('/api/v1/auth/google', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token: credentialToken, ...userDetails })
-    });
-    const json = await res.json();
-    if (json.success && json.data) {
-      if (json.data.token) {
-        localStorage.setItem('signalux_user_token', json.data.token);
-      }
-      if (json.data.user) {
-        localStorage.setItem('signalux_user_profile', JSON.stringify(json.data.user));
-      }
-      return { success: true, user: json.data.user, token: json.data.token };
-    }
-    return { success: false, message: json.error?.message || 'ورود با گوگل ناموفق بود.' };
-  } catch (err) {
-    return { success: false, message: 'خطا در ارتباط با سرور گوگل.' };
-  }
-}
-
 export function getCurrentUser(): AppUser | null {
   if (typeof window === 'undefined') return null;
-  const raw = localStorage.getItem('signalux_user_profile');
+  const raw = sessionStorage.getItem('signalux_user_profile');
   if (!raw) return null;
   try {
     return JSON.parse(raw);
@@ -866,24 +776,18 @@ export function getCurrentUser(): AppUser | null {
 }
 
 export function logoutUser(): void {
+  void customerFetch('/api/v1/auth/logout', { method: 'POST' }).catch(() => {});
   if (typeof window === 'undefined') return;
-  localStorage.removeItem('signalux_user_token');
-  localStorage.removeItem('signalux_user_profile');
+  sessionStorage.removeItem('signalux_user_token');
+  sessionStorage.removeItem('signalux_user_profile');
 }
 
 // -------------------------------------------------------------
 // Ticket API Methods (User & Client Side)
 // -------------------------------------------------------------
-export async function fetchUserTickets(phone?: string): Promise<TicketItem[]> {
+export async function fetchUserTickets(): Promise<TicketItem[]> {
   try {
-    const token = localStorage.getItem('signalux_user_token');
-    const user = getCurrentUser();
-    const queryPhone = phone || user?.phone;
-    const url = queryPhone ? `/api/v1/tickets?phone=${encodeURIComponent(queryPhone)}` : '/api/v1/tickets';
-    
-    const res = await fetch(url, {
-      headers: token ? { 'Authorization': `Bearer ${token}` } : {}
-    });
+    const res = await customerFetch('/api/v1/tickets');
     const json: ApiBaseResponse<TicketItem[]> = await res.json();
     if (json.success && json.data) {
       return json.data;
@@ -905,12 +809,12 @@ export async function createTicket(payload: {
   attachments?: string[];
 }): Promise<{ success: boolean; ticket?: TicketItem; message?: string }> {
   try {
-    const token = localStorage.getItem('signalux_user_token');
-    const res = await fetch('/api/v1/tickets', {
+
+    const res = await customerFetch('/api/v1/tickets', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+
       },
       body: JSON.stringify(payload)
     });
@@ -930,12 +834,12 @@ export async function replyTicket(ticketId: string, payload: {
   attachments?: string[];
 }): Promise<{ success: boolean; ticket?: TicketItem; message?: string }> {
   try {
-    const token = localStorage.getItem('signalux_user_token');
-    const res = await fetch(`/api/v1/tickets/${ticketId}/messages`, {
+
+    const res = await customerFetch(`/api/v1/tickets/${ticketId}/messages`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+
       },
       body: JSON.stringify(payload)
     });
@@ -954,7 +858,7 @@ export async function replyTicket(ticketId: string, payload: {
 // -------------------------------------------------------------
 export async function fetchAdminTickets(): Promise<TicketItem[]> {
   try {
-    const res = await fetch('/api/v1/admin/tickets');
+    const res = await adminFetch('/api/v1/admin/tickets');
     const json: ApiBaseResponse<TicketItem[]> = await res.json();
     if (json.success && json.data) {
       return json.data;
@@ -971,7 +875,7 @@ export async function adminReplyTicket(ticketId: string, payload: {
   senderName?: string;
 }): Promise<boolean> {
   try {
-    const res = await fetch(`/api/v1/admin/tickets/${ticketId}/reply`, {
+    const res = await adminFetch(`/api/v1/admin/tickets/${ticketId}/reply`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
@@ -985,7 +889,7 @@ export async function adminReplyTicket(ticketId: string, payload: {
 
 export async function updateAdminTicketStatus(ticketId: string, status: string): Promise<boolean> {
   try {
-    const res = await fetch(`/api/v1/admin/tickets/${ticketId}/status`, {
+    const res = await adminFetch(`/api/v1/admin/tickets/${ticketId}/status`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status })
@@ -999,7 +903,7 @@ export async function updateAdminTicketStatus(ticketId: string, status: string):
 
 export async function deleteAdminTicket(ticketId: string): Promise<boolean> {
   try {
-    const res = await fetch(`/api/v1/admin/tickets/${ticketId}`, {
+    const res = await adminFetch(`/api/v1/admin/tickets/${ticketId}`, {
       method: 'DELETE'
     });
     const json = await res.json();
@@ -1018,7 +922,7 @@ export async function testMelipayamakSms(phone: string, customCode?: string): Pr
   details?: any;
 }> {
   try {
-    const res = await fetch('/api/v1/admin/sms/test', {
+    const res = await adminFetch('/api/v1/admin/sms/test', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ phone, code: customCode || '58291' })
@@ -1036,7 +940,7 @@ export async function testMelipayamakSms(phone: string, customCode?: string): Pr
 
 export async function fetchSmsLogs(): Promise<SmsLogItem[]> {
   try {
-    const res = await fetch('/api/v1/admin/sms/logs');
+    const res = await adminFetch('/api/v1/admin/sms/logs');
     const json: ApiBaseResponse<SmsLogItem[]> = await res.json();
     if (json.success && json.data) {
       return json.data;
@@ -1052,7 +956,7 @@ export async function fetchSmsLogs(): Promise<SmsLogItem[]> {
 // -------------------------------------------------------------
 export async function fetchAdminUsers(): Promise<AdminUser[]> {
   try {
-    const res = await fetch('/api/v1/admin/users');
+    const res = await adminFetch('/api/v1/admin/users');
     const json: ApiBaseResponse<AdminUser[]> = await res.json();
     if (json.success && json.data) {
       return json.data;
@@ -1065,7 +969,7 @@ export async function fetchAdminUsers(): Promise<AdminUser[]> {
 
 export async function createAdminUser(user: Partial<AdminUser>): Promise<AdminUser | null> {
   try {
-    const res = await fetch('/api/v1/admin/users', {
+    const res = await adminFetch('/api/v1/admin/users', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(user)
@@ -1082,7 +986,7 @@ export async function createAdminUser(user: Partial<AdminUser>): Promise<AdminUs
 
 export async function updateAdminUser(id: string, user: Partial<AdminUser>): Promise<AdminUser | null> {
   try {
-    const res = await fetch(`/api/v1/admin/users/${id}`, {
+    const res = await adminFetch(`/api/v1/admin/users/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(user)
@@ -1099,7 +1003,7 @@ export async function updateAdminUser(id: string, user: Partial<AdminUser>): Pro
 
 export async function deleteAdminUser(id: string): Promise<boolean> {
   try {
-    const res = await fetch(`/api/v1/admin/users/${id}`, {
+    const res = await adminFetch(`/api/v1/admin/users/${id}`, {
       method: 'DELETE'
     });
     const json = await res.json();
@@ -1145,7 +1049,7 @@ export async function fetchPublicBlogPostBySlug(slug: string): Promise<BlogPost 
 
 export async function fetchAdminBlogPosts(): Promise<BlogPost[]> {
   try {
-    const res = await fetch('/api/v1/admin/blog');
+    const res = await adminFetch('/api/v1/admin/blog');
     const json: ApiBaseResponse<BlogPost[]> = await res.json();
     if (json.success && json.data) {
       return json.data;
@@ -1158,7 +1062,7 @@ export async function fetchAdminBlogPosts(): Promise<BlogPost[]> {
 
 export async function createAdminBlogPost(post: Partial<BlogPost>): Promise<BlogPost | null> {
   try {
-    const res = await fetch('/api/v1/admin/blog', {
+    const res = await adminFetch('/api/v1/admin/blog', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(post)
@@ -1175,7 +1079,7 @@ export async function createAdminBlogPost(post: Partial<BlogPost>): Promise<Blog
 
 export async function updateAdminBlogPost(id: string, post: Partial<BlogPost>): Promise<BlogPost | null> {
   try {
-    const res = await fetch(`/api/v1/admin/blog/${id}`, {
+    const res = await adminFetch(`/api/v1/admin/blog/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(post)
@@ -1192,7 +1096,7 @@ export async function updateAdminBlogPost(id: string, post: Partial<BlogPost>): 
 
 export async function deleteAdminBlogPost(id: string): Promise<boolean> {
   try {
-    const res = await fetch(`/api/v1/admin/blog/${id}`, {
+    const res = await adminFetch(`/api/v1/admin/blog/${id}`, {
       method: 'DELETE'
     });
     const json = await res.json();
@@ -1207,7 +1111,7 @@ export async function deleteAdminBlogPost(id: string): Promise<boolean> {
 // -------------------------------------------------------------
 export async function fetchSeoSettings(): Promise<SeoGlobalSettings | null> {
   try {
-    const res = await fetch('/api/v1/admin/seo');
+    const res = await adminFetch('/api/v1/admin/seo');
     const json: ApiBaseResponse<SeoGlobalSettings> = await res.json();
     if (json.success && json.data) {
       return json.data;
@@ -1220,7 +1124,7 @@ export async function fetchSeoSettings(): Promise<SeoGlobalSettings | null> {
 
 export async function updateSeoSettings(settings: Partial<SeoGlobalSettings>): Promise<SeoGlobalSettings | null> {
   try {
-    const res = await fetch('/api/v1/admin/seo', {
+    const res = await adminFetch('/api/v1/admin/seo', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(settings)
@@ -1462,7 +1366,7 @@ export async function fetchPagesConfig(): Promise<PageCustomSettings[]> {
   } catch (e) {}
 
   try {
-    const res = await fetch('/api/v1/admin/pages');
+    const res = await adminFetch('/api/v1/admin/pages');
     const json = await res.json();
     if (json.success && Array.isArray(json.data) && json.data.length > 0) {
       localStorage.setItem('signalux_pages_settings', JSON.stringify(json.data));
@@ -1494,7 +1398,7 @@ export async function savePageConfig(page: PageCustomSettings): Promise<boolean>
 
     // Send to PHP Backend API
     try {
-      await fetch('/api/v1/admin/pages', {
+      await adminFetch('/api/v1/admin/pages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(current)
@@ -1511,13 +1415,29 @@ export async function savePageConfig(page: PageCustomSettings): Promise<boolean>
 // -------------------------------------------------------------
 // Direct Contact Details Dedicated Getters/Setters
 // -------------------------------------------------------------
+function mergeContactDetails(overrides: Partial<ContactPageDetails>): ContactPageDetails {
+  const details = { ...DEFAULT_CONTACT_DETAILS, ...overrides };
+  const isOldPhone = (value: string) => ['02188990011', '09195466400'].includes(
+    value?.replace(/[۰-۹]/g, digit => String(digit.charCodeAt(0) - 1776)).replace(/\D/g, '')
+  );
+  if (isOldPhone(details.phoneNumber) || isOldPhone(details.phoneRaw)) {
+    details.phoneNumber = DEFAULT_CONTACT_DETAILS.phoneNumber;
+    details.phoneRaw = SITE_CONTACT.phone;
+  }
+  if (isOldPhone(details.whatsappNumber)) details.whatsappNumber = DEFAULT_CONTACT_DETAILS.whatsappNumber;
+  if (details.telegramId?.toLowerCase() === '@signalux_studio') details.telegramId = SITE_CONTACT.telegramId;
+  if (details.telegramLink?.toLowerCase() === 'https://t.me/signalux_studio') details.telegramLink = SITE_CONTACT.telegramUrl;
+  if (details.whatsappLink === 'https://wa.me/989195466400') details.whatsappLink = SITE_CONTACT.whatsappUrl;
+  return details;
+}
+
 export async function fetchContactDetails(): Promise<ContactPageDetails> {
   try {
     const cached = localStorage.getItem('signalux_contact_page_details');
     if (cached) {
       const parsed = JSON.parse(cached);
       if (parsed && typeof parsed === 'object') {
-        return { ...DEFAULT_CONTACT_DETAILS, ...parsed };
+        return mergeContactDetails(parsed);
       }
     }
   } catch (e) {}
@@ -1526,7 +1446,7 @@ export async function fetchContactDetails(): Promise<ContactPageDetails> {
     const pages = await fetchPagesConfig();
     const contactPage = pages.find(p => p.id === 'page_contact' || p.slug === 'contact');
     if (contactPage && contactPage.contactDetails) {
-      return { ...DEFAULT_CONTACT_DETAILS, ...contactPage.contactDetails };
+      return mergeContactDetails(contactPage.contactDetails);
     }
   } catch (e) {}
 
@@ -1609,7 +1529,6 @@ export const DEFAULT_SECURITY_SETTINGS: SecuritySuiteSettings = {
   enableHoneypotTrap: true,
   enableTurnstileCaptcha: true,
   turnstileSiteKey: '0x4AAAAAAAx7888998_SignaluxSiteKey',
-  turnstileSecretKey: '0x4AAAAAAAx9999999_SignaluxSecretKey',
   enableFormRateLimiting: true,
   maxFormSubmissionsPerHour: 10,
 
@@ -1699,7 +1618,7 @@ export const DEFAULT_SECURITY_SETTINGS: SecuritySuiteSettings = {
 
 export async function fetchSecuritySettings(): Promise<SecuritySuiteSettings> {
   try {
-    const res = await fetch('/api/v1/admin/security/settings');
+    const res = await adminFetch('/api/v1/admin/security/settings');
     const json = await res.json();
     if (json && json.success && json.data) {
       return { ...DEFAULT_SECURITY_SETTINGS, ...json.data };
@@ -1742,7 +1661,7 @@ export async function saveSecuritySettings(settings: Partial<SecuritySuiteSettin
     localStorage.setItem('signalux_security_suite_settings', JSON.stringify(updated));
 
     try {
-      await fetch('/api/v1/admin/security/settings', {
+      await adminFetch('/api/v1/admin/security/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updated)
@@ -1926,7 +1845,7 @@ export const DEFAULT_SPEED_SETTINGS: SpeedOptimizerSettings = {
       id: 'cr_admin',
       sectionKey: 'admin',
       sectionName: 'پنل مدیریت و پورتال ورود ادمین',
-      pathPattern: '/admin/*',
+      pathPattern: ROUTE_PATHS.admin,
       cacheEnabled: false, // NO CACHE strictly
       ttlMinutes: 0,
       strategy: 'no_cache',
@@ -1958,7 +1877,7 @@ export const DEFAULT_SPEED_SETTINGS: SpeedOptimizerSettings = {
 
 export async function fetchSpeedSettings(): Promise<SpeedOptimizerSettings> {
   try {
-    const res = await fetch('/api/v1/admin/speed/settings');
+    const res = await adminFetch('/api/v1/admin/speed/settings');
     const json = await res.json();
     if (json && json.success && json.data) {
       return { ...DEFAULT_SPEED_SETTINGS, ...json.data };
@@ -2007,7 +1926,7 @@ export async function saveSpeedSettings(settings: Partial<SpeedOptimizerSettings
     applyFontDisplaySwap(updated.fontDisplaySwap);
 
     try {
-      await fetch('/api/v1/admin/speed/settings', {
+      await adminFetch('/api/v1/admin/speed/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updated)
@@ -2055,7 +1974,7 @@ export async function purgeAllCache(): Promise<{ success: boolean; clearedItems:
     keysToRemove.forEach(k => localStorage.removeItem(k));
 
     try {
-      await fetch('/api/v1/admin/speed/purge-cache', { method: 'POST' });
+      await adminFetch('/api/v1/admin/speed/purge-cache', { method: 'POST' });
     } catch (e) {}
 
     return {
@@ -2159,7 +2078,7 @@ FileETag None
 # 4. PREVENT CACHING FOR ADMIN & AUTH ENDPOINTS
 <IfModule mod_rewrite.c>
     RewriteEngine On
-    RewriteCond %{REQUEST_URI} ^/(admin|login|api/v1/auth|api/v1/admin) [NC]
+    RewriteCond %{REQUEST_URI} ^/(${ROUTE_PATHS.admin.slice(1)}|login|api/v1/auth|api/v1/admin)(/|$) [NC]
     RewriteRule .* - [E=NO_CACHE:1]
 </IfModule>
 
@@ -2217,7 +2136,7 @@ export async function fetchAdminComments(status?: string, postId?: string): Prom
     if (status && status !== 'all') params.append('status', status);
     if (postId) params.append('postId', postId);
     const qs = params.toString() ? `?${params.toString()}` : '';
-    const res = await fetch(`/api/v1/admin/comments${qs}`);
+    const res = await adminFetch(`/api/v1/admin/comments${qs}`);
     const json = await res.json();
     if (json.success && Array.isArray(json.data)) {
       return json.data;
@@ -2231,7 +2150,7 @@ export async function fetchAdminComments(status?: string, postId?: string): Prom
 
 export async function updateAdminCommentStatus(id: string, status: 'pending' | 'approved' | 'rejected'): Promise<BlogComment | null> {
   try {
-    const res = await fetch(`/api/v1/admin/comments/${encodeURIComponent(id)}/status`, {
+    const res = await adminFetch(`/api/v1/admin/comments/${encodeURIComponent(id)}/status`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status })
@@ -2249,7 +2168,7 @@ export async function updateAdminCommentStatus(id: string, status: 'pending' | '
 
 export async function replyAdminComment(id: string, reply: { author: string; content: string }): Promise<BlogComment | null> {
   try {
-    const res = await fetch(`/api/v1/admin/comments/${encodeURIComponent(id)}/reply`, {
+    const res = await adminFetch(`/api/v1/admin/comments/${encodeURIComponent(id)}/reply`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(reply)
@@ -2267,7 +2186,7 @@ export async function replyAdminComment(id: string, reply: { author: string; con
 
 export async function deleteAdminComment(id: string): Promise<boolean> {
   try {
-    const res = await fetch(`/api/v1/admin/comments/${encodeURIComponent(id)}`, {
+    const res = await adminFetch(`/api/v1/admin/comments/${encodeURIComponent(id)}`, {
       method: 'DELETE'
     });
     const json = await res.json();
@@ -2277,7 +2196,3 @@ export async function deleteAdminComment(id: string): Promise<boolean> {
     return false;
   }
 }
-
-
-
-

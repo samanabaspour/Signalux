@@ -104,7 +104,7 @@ usersRouter.post('/', requirePermissions('users.create'), async (req: Authentica
     const dto = plainToInstance(CreateUserDto, req.body);
     const errors = await validate(dto);
     if (errors.length > 0) {
-      throw new AppError('اطلاعات کاربر وارد شده معتبر نیست.', 400, 'VALIDATION_ERROR', errors);
+      throw new AppError('اطلاعات کاربر وارد شده معتبر نیست.', 400, 'VALIDATION_ERROR');
     }
 
     const email = normalizeEmail(dto.email);
@@ -115,10 +115,15 @@ usersRouter.post('/', requirePermissions('users.create'), async (req: Authentica
         throw new AppError('کاربری با این آدرس ایمیل قبلاً ثبت شده است.', 409, 'EMAIL_EXISTS');
       }
 
+      if (!req.user?.roles.includes('SUPER_ADMIN')) {
+        throw new AppError('واگذاری نقش به دسترسی مدیر ارشد نیاز دارد.', 403, 'ROLE_ASSIGNMENT_DENIED');
+      }
       const passwordHash = await hashPassword(dto.password);
       
       const roleName = dto.roleName || 'CONTENT_MANAGER';
       const role = await prismaService.prisma.role.findUnique({ where: { name: roleName } });
+
+      if (!role) throw new AppError('نقش معتبر نیست.', 400, 'INVALID_ROLE');
 
       const newUser = await prismaService.prisma.$transaction(async (tx) => {
         const user = await tx.user.create({

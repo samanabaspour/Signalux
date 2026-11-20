@@ -5,7 +5,6 @@ import {
   Menu,
   X,
   PhoneCall,
-  Sparkles,
   ChevronDown,
   Globe,
   Search,
@@ -21,6 +20,7 @@ import {
 import { getCurrentUser, logoutUser, AppUser, BlogPost } from '../services/apiClient';
 import { PortfolioProject } from '../types';
 import { SearchOverlay } from './SearchOverlay';
+import { SITE_CONTACT } from '../utils/siteContact';
 
 interface NavbarProps {
   onOpenConsultation: () => void;
@@ -169,8 +169,8 @@ export const Navbar: React.FC<NavbarProps> = ({
               </div>
             </div>
             <div className="flex flex-col">
-              <span className="text-lg font-black tracking-widest text-white uppercase font-mono flex items-center gap-1">
-                SIGNAL<span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-200 via-amber-400 to-yellow-500">UX</span>
+              <span className="text-lg font-black tracking-widest text-white font-mono">
+                signal<span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-200 via-amber-400 to-yellow-500">ux</span>
               </span>
               <span className="text-[9px] text-amber-200/50 tracking-[0.2em] font-mono -mt-1 uppercase">آکادمی و استودیو دیزاین</span>
             </div>
@@ -451,22 +451,14 @@ export const Navbar: React.FC<NavbarProps> = ({
               )
             )}
 
-            {/* Consultation CTA */}
-            <button
-              onClick={onOpenConsultation}
-              className="h-10 inline-flex items-center justify-center gap-2 px-5 text-xs font-black uppercase tracking-wider text-slate-950 bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-500 hover:from-amber-400 hover:to-amber-300 transition-all duration-300 active:scale-95 cursor-pointer rounded-[5px] shadow-[0_0_20px_rgba(212,175,55,0.35)] shrink-0"
-            >
-              <Sparkles className="w-3.5 h-3.5 text-slate-950" />
-              <span>مشاوره اختصاصی</span>
-            </button>
           </div>
 
           {/* Mobile menu toggle button */}
-          <div className="flex lg:hidden items-center gap-1.5 sm:gap-2">
+          <div className="flex lg:hidden items-center gap-1.5 sm:gap-2 [&>button]:grid [&>button]:size-11 [&>button]:shrink-0 [&>button]:place-items-center">
             {/* Mobile Search Icon Button */}
             <button
               onClick={() => setIsSearchOverlayOpen(true)}
-              className="p-2 bg-[#121017] border border-amber-500/20 text-amber-400 hover:text-amber-300 rounded-[5px]"
+              className="bg-[#121017] border border-amber-500/20 text-amber-400 hover:text-amber-300 rounded-[5px]"
               aria-label="جستجو در سایت"
               title="جستجو"
             >
@@ -478,7 +470,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 onClick={() => {
                   if (onNavigateAccount) onNavigateAccount();
                 }}
-                className="p-2 bg-[#121017] border border-amber-500/30 text-amber-300 rounded-[5px]"
+                className="bg-[#121017] border border-amber-500/30 text-amber-300 rounded-[5px]"
                 title="حساب کاربری و تیکت‌ها"
               >
                 <User className="w-4 h-4" />
@@ -486,24 +478,18 @@ export const Navbar: React.FC<NavbarProps> = ({
             ) : onOpenAuth ? (
               <button
                 onClick={onOpenAuth}
-                className="p-2 bg-[#121017] border border-amber-500/20 text-amber-300 rounded-[5px]"
+                className="bg-[#121017] border border-amber-500/20 text-amber-300 rounded-[5px]"
                 title="ورود / عضویت"
               >
                 <User className="w-4 h-4" />
               </button>
             ) : null}
             <button
-              onClick={onOpenConsultation}
-              className="px-3 py-1.5 text-xs font-black text-slate-950 bg-gradient-to-r from-amber-500 to-yellow-500 transition-colors rounded-[5px]"
-            >
-              مشاوره
-            </button>
-            <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="p-2.5 bg-[#121017] border border-amber-500/20 text-amber-200 rounded-[5px]"
+              className="bg-[#121017] border border-amber-500/20 text-amber-200 rounded-[5px]"
               aria-label="باز کردن منو"
             >
-              {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+              {mobileMenuOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
             </button>
           </div>
         </div>
@@ -779,23 +765,12 @@ export const Navbar: React.FC<NavbarProps> = ({
 
                 {/* Drawer Footer Actions */}
                 <div className="p-4 border-t border-amber-500/20 bg-[#08070c] flex flex-col gap-2">
-                  <button
-                    onClick={() => {
-                      setMobileMenuOpen(false);
-                      onOpenConsultation();
-                    }}
-                    className="w-full py-3 bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-500 hover:from-amber-400 hover:to-amber-300 text-slate-950 font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 rounded-[5px] shadow-[0_0_15px_rgba(212,175,55,0.3)] active:scale-98 transition-all"
-                  >
-                    <Sparkles className="w-4 h-4" />
-                    <span>درخواست مشاوره رایگان</span>
-                  </button>
-
                   <a
-                    href="tel:09352997272"
+                    href={'tel:' + SITE_CONTACT.phone}
                     className="w-full py-2.5 bg-[#121017] hover:bg-[#181520] border border-amber-500/20 text-amber-200/80 text-xs font-mono flex items-center justify-center gap-2 rounded-[5px] transition-colors"
                   >
                     <PhoneCall className="w-4 h-4 text-amber-400" />
-                    <span>تماس مستقیم: ۰۹۳۵۲۹۹۷۲۷۲</span>
+                    <span>تماس مستقیم: {SITE_CONTACT.phoneDisplay}</span>
                   </a>
                 </div>
               </motion.aside>

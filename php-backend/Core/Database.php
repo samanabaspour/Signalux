@@ -15,6 +15,9 @@ class Database {
         if (self::$instance === null) {
             $config = require __DIR__ . '/../config.php';
             $db = $config['db'];
+            if ($db['database'] === '' || $db['username'] === '') {
+                return null;
+            }
 
             $dsn = sprintf(
                 "mysql:host=%s;port=%s;dbname=%s;charset=%s",
@@ -28,14 +31,12 @@ class Database {
                 PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
                 PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
                 PDO::ATTR_EMULATE_PREPARES   => false,
-                PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES {$db['charset']} COLLATE utf8mb4_unicode_ci"
             ];
 
             try {
                 self::$instance = new PDO($dsn, $db['username'], $db['password'], $options);
             } catch (PDOException $e) {
-                // Log silently or return null to allow fallback
-                error_log("Database Connection Error: " . $e->getMessage());
+                error_log('Signalux database unavailable: ' . $e->getCode());
                 return null;
             }
         }
