@@ -1,0 +1,570 @@
+@import "tailwindcss";
+
+@font-face {
+  font-family: 'Shabnam';
+  src: url('/assets/fonts/Shabnam-Light.woff2') format('woff2'),
+       url('/assets/fonts/Shabnam-Light.woff') format('woff'),
+       url('/assets/fonts/Shabnam-Light.ttf') format('truetype');
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Shabnam';
+  src: url('/assets/fonts/Shabnam.woff2') format('woff2'),
+       url('/assets/fonts/Shabnam.woff') format('woff'),
+       url('/assets/fonts/Shabnam.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Shabnam';
+  src: url('/assets/fonts/Shabnam-Medium.woff2') format('woff2'),
+       url('/assets/fonts/Shabnam-Medium.woff') format('woff'),
+       url('/assets/fonts/Shabnam-Medium.ttf') format('truetype');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Shabnam';
+  src: url('/assets/fonts/Shabnam-Bold.woff2') format('woff2'),
+       url('/assets/fonts/Shabnam-Bold.woff') format('woff'),
+       url('/assets/fonts/Shabnam-Bold.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  --app-font-family: 'Shabnam', system-ui, -apple-system, sans-serif;
+  --app-font-size: 16px;
+  --app-heading-scale: 1.25;
+  --app-font-weight: 400;
+  --app-line-height: 1.65;
+
+  /* Tag-level Typography Variables (Customizable from Admin Panel) */
+  --app-h1-size: 2.25rem;
+  --app-h1-weight: 700;
+  --app-h1-lh: 1.3;
+
+  --app-h2-size: 1.75rem;
+  --app-h2-weight: 700;
+  --app-h2-lh: 1.35;
+
+  --app-h3-size: 1.35rem;
+  --app-h3-weight: 600;
+  --app-h3-lh: 1.4;
+
+  --app-h4-size: 1.15rem;
+  --app-h4-weight: 600;
+  --app-h4-lh: 1.45;
+
+  --app-h5-size: 1rem;
+  --app-h5-weight: 500;
+  --app-h5-lh: 1.5;
+
+  --app-h6-size: 0.875rem;
+  --app-h6-weight: 500;
+  --app-h6-lh: 1.5;
+
+  --app-p-size: 1rem;
+  --app-p-weight: 400;
+  --app-p-lh: 1.7;
+
+  --app-btn-size: 0.875rem;
+  --app-btn-weight: 600;
+
+  --app-small-size: 0.75rem;
+  --app-small-weight: 400;
+
+  --app-navbar-size: 0.875rem;
+  --app-navbar-weight: 500;
+}
+
+@layer base {
+  *, ::before, ::after {
+    font-family: var(--app-font-family) !important;
+  }
+  
+  html {
+    font-size: var(--app-font-size);
+  }
+
+  body {
+    font-family: var(--app-font-family);
+    font-size: var(--app-font-size);
+    font-weight: var(--app-font-weight);
+    line-height: var(--app-line-height);
+    background-color: #070609;
+    color: #f3f4f6;
+    direction: rtl;
+    overflow-x: hidden;
+  }
+
+  h1 {
+    font-size: var(--app-h1-size);
+    font-weight: var(--app-h1-weight);
+    line-height: var(--app-h1-lh);
+  }
+
+  h2 {
+    font-size: var(--app-h2-size);
+    font-weight: var(--app-h2-weight);
+    line-height: var(--app-h2-lh);
+  }
+
+  h3 {
+    font-size: var(--app-h3-size);
+    font-weight: var(--app-h3-weight);
+    line-height: var(--app-h3-lh);
+  }
+
+  h4 {
+    font-size: var(--app-h4-size);
+    font-weight: var(--app-h4-weight);
+    line-height: var(--app-h4-lh);
+  }
+
+  h5 {
+    font-size: var(--app-h5-size);
+    font-weight: var(--app-h5-weight);
+    line-height: var(--app-h5-lh);
+  }
+
+  h6 {
+    font-size: var(--app-h6-size);
+    font-weight: var(--app-h6-weight);
+    line-height: var(--app-h6-lh);
+  }
+
+  p {
+    font-size: var(--app-p-size);
+    font-weight: var(--app-p-weight);
+    line-height: var(--app-p-lh);
+  }
+
+  button {
+    font-size: var(--app-btn-size);
+    font-weight: var(--app-btn-weight);
+  }
+
+  small, caption {
+    font-size: var(--app-small-size);
+    font-weight: var(--app-small-weight);
+  }
+}
+
+/* Custom Glass & Glow Utilities */
+.glass-card {
+  background: rgba(18, 14, 26, 0.75);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(212, 175, 55, 0.2);
+}
+
+.glass-card:hover {
+  border-color: rgba(212, 175, 55, 0.5);
+  box-shadow: 0 0 30px rgba(212, 175, 55, 0.15);
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #070609;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(212, 175, 55, 0.3);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(212, 175, 55, 0.6);
+}
+
+/* ========================================================================= */
+/* ADMIN PANEL PALETTE: WHITE / NAVY / COBALT BLUE (سفید / سورمه‌ای / آبی کاربنی) */
+/* User Request: رنگ بندی بک اند: سفید / سورمه ای / آبی کاربنی همه بخش ها */
+/* ========================================================================= */
+.admin-light-mode {
+  background-color: #f1f5f9 !important;
+  color: #0f172a !important;
+}
+
+/* 1. Header: Pure White with Navy branding and Cobalt accent */
+.admin-light-mode header {
+  background-color: #ffffff !important;
+  border-bottom: 1px solid #e2e8f0 !important;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05) !important;
+  color: #0f172a !important;
+}
+
+/* 2. Sidebar: Deep Executive Navy (سورمه‌ای شیک و مقتدر) */
+.admin-light-mode aside {
+  background-color: #0b1528 !important;
+  border-left: 1px solid #1e293b !important;
+  color: #cbd5e1 !important;
+  box-shadow: -2px 0 10px rgba(0, 0, 0, 0.08) !important;
+}
+
+.admin-light-mode aside * {
+  border-color: #1e293b;
+}
+
+.admin-light-mode aside button,
+.admin-light-mode aside a,
+.admin-light-mode aside div[role="button"] {
+  color: #cbd5e1;
+}
+
+.admin-light-mode aside button svg,
+.admin-light-mode aside a svg {
+  color: #94a3b8;
+}
+
+.admin-light-mode aside button:hover,
+.admin-light-mode aside a:hover {
+  background-color: #152544 !important;
+  color: #ffffff !important;
+}
+
+.admin-light-mode aside button:hover svg,
+.admin-light-mode aside a:hover svg {
+  color: #60a5fa !important;
+}
+
+/* Active Nav Item in Sidebar: Carbon / Cobalt Blue (آبی کاربنی) */
+.admin-light-mode aside [class*="bg-blue-600"],
+.admin-light-mode aside [class*="bg-amber-500/20"],
+.admin-light-mode aside [class*="bg-indigo-500/25"],
+.admin-light-mode aside [class*="bg-purple-500/20"],
+.admin-light-mode aside [class*="bg-emerald-500/20"],
+.admin-light-mode aside [class*="bg-cyan-500/20"] {
+  background-color: #1d4ed8 !important;
+  color: #ffffff !important;
+  border: 1px solid #2563eb !important;
+  box-shadow: 0 2px 8px rgba(29, 78, 216, 0.35) !important;
+}
+
+.admin-light-mode aside [class*="bg-blue-600"] svg,
+.admin-light-mode aside [class*="bg-amber-500/20"] svg,
+.admin-light-mode aside [class*="bg-indigo-500/25"] svg,
+.admin-light-mode aside [class*="bg-purple-500/20"] svg,
+.admin-light-mode aside [class*="bg-emerald-500/20"] svg,
+.admin-light-mode aside [class*="bg-cyan-500/20"] svg {
+  color: #ffffff !important;
+}
+
+.admin-light-mode aside [class*="bg-blue-600"] span,
+.admin-light-mode aside [class*="bg-amber-500/20"] span,
+.admin-light-mode aside [class*="bg-indigo-500/25"] span,
+.admin-light-mode aside [class*="bg-purple-500/20"] span,
+.admin-light-mode aside [class*="bg-emerald-500/20"] span,
+.admin-light-mode aside [class*="bg-cyan-500/20"] span {
+  color: #ffffff !important;
+}
+
+/* 3. Main Content Canvas: Crisp Light Gray-Blue Canvas (#f1f5f9) */
+.admin-light-mode main {
+  background-color: #f1f5f9 !important;
+  color: #0f172a !important;
+}
+
+/* 4. Cards, Panels, Boxes, Modals & Banners: Pure White (سفید) with Navy borders & subtle shadows */
+.admin-light-mode main [class*="bg-[#070609]"],
+.admin-light-mode main [class*="bg-[#0a0810]"],
+.admin-light-mode main [class*="bg-[#0e0c14]"],
+.admin-light-mode main [class*="bg-[#0f0c16]"],
+.admin-light-mode main [class*="bg-[#100d17]"],
+.admin-light-mode main [class*="bg-[#120e24]"],
+.admin-light-mode main [class*="bg-[#0c0916]"],
+.admin-light-mode main [class*="bg-[#08060f]"],
+.admin-light-mode main [class*="bg-[#121017]"],
+.admin-light-mode main [class*="bg-[#15121e]"],
+.admin-light-mode main [class*="bg-[#14101d]"],
+.admin-light-mode main [class*="bg-[#1a1626]"],
+.admin-light-mode main [class*="bg-zinc-950"],
+.admin-light-mode main [class*="bg-zinc-900"],
+.admin-light-mode main [class*="bg-zinc-900/"],
+.admin-light-mode main [class*="bg-slate-900"],
+.admin-light-mode main [class*="bg-slate-950"],
+.admin-light-mode [class*="fixed"] [class*="bg-[#070609]"],
+.admin-light-mode [class*="fixed"] [class*="bg-[#0e0c14]"],
+.admin-light-mode [class*="fixed"] [class*="bg-[#121017]"],
+.admin-light-mode [class*="fixed"] [class*="bg-zinc-950"],
+.admin-light-mode [class*="fixed"] [class*="bg-zinc-900"],
+.admin-light-mode [class*="fixed"] [class*="bg-[#0f0c16]"] {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05) !important;
+}
+
+/* Eliminate dark gradients on banner cards and headers */
+.admin-light-mode main [class*="bg-gradient-to-"]:not(button):not(button *):not([class*="meter"]):not([class*="progress"]),
+.admin-light-mode main [class*="from-zinc-"]:not(button):not(button *),
+.admin-light-mode main [class*="from-[#"]:not(button):not(button *),
+.admin-light-mode main [class*="via-zinc-"]:not(button):not(button *),
+.admin-light-mode main [class*="to-zinc-"]:not(button):not(button *) {
+  background-image: none !important;
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05) !important;
+}
+
+/* Subtle surfaces & inner cards */
+.admin-light-mode main [class*="bg-white/5"],
+.admin-light-mode main [class*="bg-white/10"],
+.admin-light-mode main [class*="bg-zinc-800"],
+.admin-light-mode main [class*="bg-zinc-800/"],
+.admin-light-mode [class*="fixed"] [class*="bg-white/5"],
+.admin-light-mode [class*="fixed"] [class*="bg-zinc-800"] {
+  background-color: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+}
+
+/* Card Borders */
+.admin-light-mode main [class*="border-zinc-800"],
+.admin-light-mode main [class*="border-zinc-700"],
+.admin-light-mode main [class*="border-zinc-900"],
+.admin-light-mode main [class*="border-white/10"],
+.admin-light-mode main [class*="border-white/5"],
+.admin-light-mode main [class*="border-amber-500/"],
+.admin-light-mode main [class*="border-cyan-500/"],
+.admin-light-mode main [class*="border-purple-500/"],
+.admin-light-mode main [class*="border-emerald-500/"],
+.admin-light-mode [class*="fixed"] [class*="border-zinc-800"],
+.admin-light-mode [class*="fixed"] [class*="border-amber-500/"] {
+  border-color: #e2e8f0 !important;
+}
+
+/* 5. Headings: Deep Navy (سورمه‌ای - #0f172a) */
+.admin-light-mode main h1,
+.admin-light-mode main h2,
+.admin-light-mode main h3,
+.admin-light-mode main h4,
+.admin-light-mode main h5,
+.admin-light-mode main h6,
+.admin-light-mode [class*="fixed"] h1,
+.admin-light-mode [class*="fixed"] h2,
+.admin-light-mode [class*="fixed"] h3,
+.admin-light-mode [class*="fixed"] h4 {
+  color: #0f172a !important;
+}
+
+/* Headings and labels text override when styled with text-white */
+.admin-light-mode main *:not(button):not(button *):not(a[class*="bg-"]):not(aside *)[class*="text-white"],
+.admin-light-mode [class*="fixed"] *:not(button):not(button *):not(a[class*="bg-"])[class*="text-white"] {
+  color: #0f172a !important;
+}
+
+/* 6. Body Paragraphs & Labels: Slate Navy (#334155) */
+.admin-light-mode main p,
+.admin-light-mode main label,
+.admin-light-mode [class*="fixed"] p,
+.admin-light-mode [class*="fixed"] label {
+  color: #334155;
+}
+
+.admin-light-mode main *:not(button):not(button *):not(aside *)[class*="text-zinc-400"],
+.admin-light-mode main *:not(button):not(button *):not(aside *)[class*="text-zinc-500"],
+.admin-light-mode main *:not(button):not(button *):not(aside *)[class*="text-zinc-300"],
+.admin-light-mode main *:not(button):not(button *):not(aside *)[class*="text-slate-400"],
+.admin-light-mode main *:not(button):not(button *):not(aside *)[class*="text-white/40"],
+.admin-light-mode main *:not(button):not(button *):not(aside *)[class*="text-white/50"],
+.admin-light-mode main *:not(button):not(button *):not(aside *)[class*="text-white/60"],
+.admin-light-mode main *:not(button):not(button *):not(aside *)[class*="text-white/70"],
+.admin-light-mode main *:not(button):not(button *):not(aside *)[class*="text-amber-200/60"],
+.admin-light-mode [class*="fixed"] [class*="text-zinc-400"],
+.admin-light-mode [class*="fixed"] [class*="text-white/50"],
+.admin-light-mode [class*="fixed"] [class*="text-white/60"] {
+  color: #64748b !important;
+}
+
+/* Numbers and metrics in cards */
+.admin-light-mode main div[class*="text-2xl"][class*="text-white"],
+.admin-light-mode main div[class*="text-3xl"][class*="text-white"],
+.admin-light-mode main span[class*="text-2xl"][class*="text-white"] {
+  color: #0f172a !important;
+}
+
+/* 7. Inputs, Textareas, Selects: Pure White + Navy text + Cobalt Blue focus */
+.admin-light-mode input,
+.admin-light-mode textarea,
+.admin-light-mode select {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  border: 1px solid #cbd5e1 !important;
+}
+
+.admin-light-mode input:focus,
+.admin-light-mode textarea:focus,
+.admin-light-mode select:focus {
+  border-color: #1d4ed8 !important;
+  outline: 2px solid rgba(29, 78, 216, 0.2) !important;
+}
+
+.admin-light-mode input::placeholder,
+.admin-light-mode textarea::placeholder {
+  color: #94a3b8 !important;
+}
+
+/* 8. Primary Action Buttons & Active Tabs: Carbon / Cobalt Blue (آبی کاربنی) */
+.admin-light-mode button[class*="bg-amber-500"],
+.admin-light-mode button[class*="bg-amber-400"],
+.admin-light-mode button[class*="bg-purple-600"],
+.admin-light-mode button[class*="bg-purple-500"],
+.admin-light-mode button[class*="bg-indigo-600"],
+.admin-light-mode button[class*="bg-blue-600"],
+.admin-light-mode button[class*="bg-cyan-600"],
+.admin-light-mode button[class*="bg-emerald-500"],
+.admin-light-mode button[class*="from-emerald-500"],
+.admin-light-mode a[class*="bg-amber-500"],
+.admin-light-mode a[class*="bg-purple-600"],
+.admin-light-mode a[class*="bg-blue-600"],
+.admin-light-mode a[class*="bg-emerald-500"] {
+  background: #1d4ed8 !important;
+  background-color: #1d4ed8 !important;
+  color: #ffffff !important;
+  border: none !important;
+  box-shadow: 0 2px 8px rgba(29, 78, 216, 0.28) !important;
+}
+
+.admin-light-mode button[class*="bg-amber-500"]:hover,
+.admin-light-mode button[class*="bg-purple-600"]:hover,
+.admin-light-mode button[class*="bg-indigo-600"]:hover,
+.admin-light-mode button[class*="bg-blue-600"]:hover,
+.admin-light-mode button[class*="bg-cyan-600"]:hover,
+.admin-light-mode button[class*="bg-emerald-500"]:hover {
+  background-color: #1e40af !important;
+}
+
+/* Ensure button child icons & labels stay pure white */
+.admin-light-mode button[class*="bg-amber-500"] *,
+.admin-light-mode button[class*="bg-purple-600"] *,
+.admin-light-mode button[class*="bg-indigo-600"] *,
+.admin-light-mode button[class*="bg-blue-600"] *,
+.admin-light-mode button[class*="bg-emerald-500"] * {
+  color: #ffffff !important;
+}
+
+/* 9. Secondary, Inactive & Outline Buttons: Crisp White + Navy text & border */
+.admin-light-mode button[class*="border-zinc-800"],
+.admin-light-mode button[class*="border-zinc-700"],
+.admin-light-mode button[class*="bg-zinc-800"],
+.admin-light-mode button[class*="bg-zinc-900"],
+.admin-light-mode button[class*="bg-zinc-950"],
+.admin-light-mode button[class*="bg-white/10"]:not(aside *) {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  border: 1px solid #cbd5e1 !important;
+}
+
+.admin-light-mode button[class*="border-zinc-800"]:hover,
+.admin-light-mode button[class*="border-zinc-700"]:hover,
+.admin-light-mode button[class*="bg-zinc-800"]:hover,
+.admin-light-mode button[class*="bg-zinc-900"]:hover,
+.admin-light-mode button[class*="bg-zinc-950"]:hover,
+.admin-light-mode button[class*="bg-white/10"]:not(aside *):hover {
+  background-color: #eff6ff !important;
+  color: #1d4ed8 !important;
+  border-color: #93c5fd !important;
+}
+
+/* 10. Badges & Accent Pills: Cobalt Blue & Soft Slate */
+.admin-light-mode main [class*="text-purple-300"],
+.admin-light-mode main [class*="text-purple-400"],
+.admin-light-mode main [class*="text-indigo-400"],
+.admin-light-mode main [class*="text-amber-400"],
+.admin-light-mode main [class*="text-amber-300"],
+.admin-light-mode main [class*="text-cyan-400"],
+.admin-light-mode main [class*="text-cyan-300"] {
+  color: #1d4ed8 !important;
+}
+
+.admin-light-mode main [class*="bg-purple-500/10"],
+.admin-light-mode main [class*="bg-purple-500/20"],
+.admin-light-mode main [class*="bg-indigo-500/20"],
+.admin-light-mode main [class*="bg-amber-500/10"],
+.admin-light-mode main [class*="bg-amber-500/20"],
+.admin-light-mode main [class*="bg-cyan-500/10"],
+.admin-light-mode main [class*="bg-cyan-500/20"],
+.admin-light-mode main [class*="bg-emerald-500/10"] {
+  background-color: #eff6ff !important;
+  border-color: #bfdbfe !important;
+  color: #1d4ed8 !important;
+}
+
+/* Icon badges */
+.admin-light-mode main [class*="bg-purple-500/10"] svg,
+.admin-light-mode main [class*="bg-amber-500/10"] svg,
+.admin-light-mode main [class*="bg-cyan-500/10"] svg,
+.admin-light-mode main [class*="bg-emerald-500/10"] svg {
+  color: #1d4ed8 !important;
+}
+
+/* 11. Tables */
+.admin-light-mode table {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+}
+
+.admin-light-mode thead,
+.admin-light-mode thead tr {
+  background-color: #f8fafc !important;
+  color: #0f172a !important;
+  border-bottom: 2px solid #e2e8f0 !important;
+}
+
+.admin-light-mode thead th {
+  color: #0f172a !important;
+  font-weight: 700 !important;
+}
+
+.admin-light-mode tbody tr {
+  border-bottom: 1px solid #f1f5f9 !important;
+  background-color: #ffffff !important;
+}
+
+.admin-light-mode tbody tr:hover {
+  background-color: #f0f7ff !important;
+}
+
+.admin-light-mode tbody td {
+  color: #334155 !important;
+}
+
+/* Scrollbars in Admin */
+.admin-light-mode ::-webkit-scrollbar-track {
+  background: #f1f5f9 !important;
+}
+
+.admin-light-mode ::-webkit-scrollbar-thumb {
+  background: #cbd5e1 !important;
+  border-radius: 4px;
+}
+
+.admin-light-mode ::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8 !important;
+}
+
+/* 12. Modals & Overlays */
+.admin-light-mode [class*="fixed"][class*="inset-0"][class*="z-50"] {
+  background-color: rgba(11, 21, 40, 0.6) !important;
+  backdrop-filter: blur(4px) !important;
+}
+
+.admin-light-mode [class*="fixed"][class*="inset-0"][class*="z-50"] > div,
+.admin-light-mode [class*="fixed"][class*="inset-0"][class*="z-50"] form {
+  background-color: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  box-shadow: 0 20px 25px -5px rgba(15, 23, 42, 0.15), 0 8px 10px -6px rgba(15, 23, 42, 0.1) !important;
+}
+
+

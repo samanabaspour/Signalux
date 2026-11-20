@@ -1,0 +1,306 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+enum LeadStatus {
+  NEW
+  CONTACTED
+  CLOSED
+}
+
+enum LeadType {
+  CONSULTATION
+  CONTACT
+}
+
+model User {
+  id              String         @id @default(uuid())
+  firstName       String
+  lastName        String
+  email           String         @unique
+  phone           String?
+  passwordHash    String
+  avatar          String?
+  status          UserStatus     @default(ACTIVE)
+  isEmailVerified Boolean        @default(false)
+  lastLoginAt     DateTime?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  userRoles       UserRole[]
+  refreshTokens   RefreshToken[]
+  auditLogs       AuditLog[]
+  createdMedia    Media[]
+
+  @@map("users")
+}
+
+model Role {
+  id           String           @id @default(uuid())
+  name         String           @unique
+  labelPersian String
+  description  String?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  userRoles       UserRole[]
+  rolePermissions RolePermission[]
+
+  @@map("roles")
+}
+
+model Permission {
+  id          String           @id @default(uuid())
+  key         String           @unique
+  group       String
+  description String?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  rolePermissions RolePermission[]
+
+  @@map("permissions")
+}
+
+model UserRole {
+  userId     String
+  roleId     String
+  assignedAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+  @@map("user_roles")
+}
+
+model RolePermission {
+  roleId       String
+  permissionId String
+  assignedAt   DateTime @default(now())
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+model RefreshToken {
+  id         String    @id @default(uuid())
+  userId     String
+  tokenHash  String    @unique
+  expiresAt  DateTime
+  revokedAt  DateTime?
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime  @default(now())
+  lastUsedAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("refresh_tokens")
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  userId     String?
+  action     String
+  entityType String
+  entityId   String?
+  metadata   Json?
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([action])
+  @@index([entityType, entityId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+model Service {
+  id           String   @id @default(uuid())
+  slug         String   @unique
+  title        String
+  subtitle     String?
+  category     String   @default("web")
+  iconName     String   @default("Code2")
+  description  String   @db.Text
+  features     Json?
+  metrics      String?
+  deliverables Json?
+  gradient     String?
+  isPublished  Boolean  @default(true)
+  sortOrder    Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("services")
+}
+
+model ProjectCategory {
+  id        String    @id @default(uuid())
+  slug      String    @unique
+  name      String
+  projects  Project[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@map("project_categories")
+}
+
+model Project {
+  id              String          @id @default(uuid())
+  slug            String          @unique
+  title           String
+  client          String?
+  categoryId      String?
+  categoryLabel   String?
+  thumbnail       String
+  year            String          @default("۱۴۰۳")
+  summary         String          @db.Text
+  fullDescription String?         @db.Text
+  tags            Json?
+  isPublished     Boolean         @default(true)
+  isFeatured      Boolean         @default(false)
+  sortOrder       Int             @default(0)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  category      ProjectCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  impactMetrics ProjectMetric[]
+
+  @@map("projects")
+}
+
+model ProjectMetric {
+  id        String  @id @default(uuid())
+  projectId String
+  label     String
+  value     String
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@map("project_metrics")
+}
+
+model Certificate {
+  id            String   @id @default(uuid())
+  title         String
+  issuer        String
+  issueDate     String
+  credentialId  String?
+  image         String
+  badgeType     String   @default("gold")
+  description   String?  @db.Text
+  skills        Json?
+  isPublished   Boolean  @default(true)
+  sortOrder     Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("certificates")
+}
+
+model Testimonial {
+  id              String   @id @default(uuid())
+  name            String
+  role            String
+  company         String?
+  avatar          String
+  quote           String   @db.Text
+  rating          Int      @default(5)
+  resultsAchieved String?
+  isPublished     Boolean  @default(true)
+  sortOrder       Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("testimonials")
+}
+
+model FAQ {
+  id          String   @id @default(uuid())
+  category    String   @default("عمومی")
+  question    String   @db.Text
+  answer      String   @db.Text
+  isPublished Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("faqs")
+}
+
+model LeadSubmission {
+  id        String     @id @default(uuid())
+  type      LeadType   @default(CONSULTATION)
+  name      String
+  email     String?
+  phone     String?
+  service   String?
+  budget    String?
+  message   String?    @db.Text
+  status    LeadStatus @default(NEW)
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  @@index([status])
+  @@index([createdAt])
+  @@map("lead_submissions")
+}
+
+model SiteSettings {
+  id             String   @id @default(uuid())
+  siteTitle      String   @default("آژانس دیجیتال سیگنالوکس (Signalux)")
+  heroHeadline   String   @default("خلق تجربه‌های دیجیتال بدون مرز")
+  heroSubtitle   String   @default("استودیو سیگنالوکس با بهره‌گیری از طراحی مدرن وب و سئو برند شما را ممتاز می‌کند.")
+  contactEmail   String   @default("info@signalux.ir")
+  contactPhone   String   @default("۰۲۱-۸۸۹۹۰۰۱۱")
+  contactAddress String   @default("تهران، خیابان ولیعصر، برج فناوری سیگنال")
+  instagramUrl   String   @default("https://instagram.com/signalux")
+  linkedinUrl    String   @default("https://linkedin.com/company/signalux")
+  telegramUrl    String   @default("https://t.me/signalux_studio")
+  githubUrl      String   @default("https://github.com/signalux")
+  updatedAt      DateTime @updatedAt
+
+  @@map("site_settings")
+}
+
+model Media {
+  id           String   @id @default(uuid())
+  filename     String
+  originalName String
+  mimeType     String
+  sizeBytes    Int
+  storagePath  String
+  publicUrl    String
+  altText      String?
+  caption      String?
+  folder       String   @default("general")
+  createdById  String?
+  createdAt    DateTime @default(now())
+
+  createdBy User? @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@map("media")
+}

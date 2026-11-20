@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="fa" dir="rtl" class="dark scroll-smooth">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
+    <title>آژانس دیجیتال مارکتینگ و توسعه وب سیگنالوکس | Signalux Studio</title>
+    <meta name="description" content="سیگنالوکس - استودیوی تخصصی طراحی و توسعه وب، دیجیتال مارکتینگ و سئو با راهکارهای مدرن و مبتنی بر داده." />
+    
+    <!-- Persian Web Fonts CDN & Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;600;700;800&family=Sahel:wght@300;400;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet" type="text/css" />
+    <link href="https://cdn.jsdelivr.net/gh/rastikerdar/shabnam-font@v5.0.1/dist/font-face.css" rel="stylesheet" type="text/css" />
+    <link href="https://cdn.jsdelivr.net/gh/rastikerdar/sahel-font@v3.4.0/dist/font-face.css" rel="stylesheet" type="text/css" />
+    <link href="https://cdn.jsdelivr.net/gh/rastikerdar/samim-font@v4.0.5/dist/font-face.css" rel="stylesheet" type="text/css" />
+    <link href="https://cdn.jsdelivr.net/gh/rastikerdar/estedad-font@v4.0.0/dist/font-face.css" rel="stylesheet" type="text/css" />
+
+    <style>
+      :root {
+        --app-font-family: 'Shabnam', 'Vazirmatn', system-ui, -apple-system, sans-serif;
+        --app-font-size: 16px;
+        --app-heading-scale: 1.25;
+        --app-font-weight: 400;
+        --app-line-height: 1.65;
+      }
+      body {
+        background-color: #070609;
+        color: #E6E1DA;
+        font-family: var(--app-font-family);
+        font-size: var(--app-font-size);
+        line-height: var(--app-line-height);
+        overflow-x: hidden;
+      }
+    </style>
+  </head>
+  <body class="bg-[#0B0B0F] text-[#E2E8F0] antialiased selection:bg-[#C026D3]/30 selection:text-white">
+    <div id="root"></div>
+    <script>
+      try {
+        if (typeof window !== 'undefined') {
+          let _fetch = window.fetch;
+          Object.defineProperty(window, 'fetch', {
+            get() { return _fetch; },
+            set(v) { _fetch = v; },
+            configurable: true,
+            enumerable: true
+          });
+        }
+      } catch (e) {}
+    </script>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
